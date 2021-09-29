@@ -11,7 +11,7 @@ public class AesCryptHelper
     /// <param name="SourceStr">加密前字串</param>
     /// <param name="CryptoKey">加密金鑰</param>
     /// <returns>加密後字串</returns>
-    public static string aesEncryptBase64(string SourceStr, string CryptoKey)
+    public static string Encrypt(string SourceStr, string CryptoKey)
     {
         string encrypt = "";
         try
@@ -40,13 +40,35 @@ public class AesCryptHelper
         return encrypt;
     }
 
+    public static string Encrypt(string data, string key, string iv)
+    {
+        try
+        {
+            byte[] keyArray = Encoding.UTF8.GetBytes(key);
+            byte[] ivArray = Encoding.UTF8.GetBytes(iv);
+            byte[] toEncryptArray = Encoding.UTF8.GetBytes(data);
+            RijndaelManaged rDel = new RijndaelManaged();
+            rDel.Key = keyArray;
+            rDel.IV = ivArray;
+            rDel.Mode = CipherMode.CBC;
+            rDel.Padding = PaddingMode.PKCS7;
+            ICryptoTransform cTransform = rDel.CreateEncryptor();
+            byte[] resultArray = cTransform.TransformFinalBlock(toEncryptArray, 0, toEncryptArray.Length);
+            return Convert.ToBase64String(resultArray, 0, resultArray.Length);
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
+    }
+
     /// <summary>
     /// 字串解密(非對稱式)
     /// </summary>
     /// <param name="SourceStr">解密前字串</param>
     /// <param name="CryptoKey">解密金鑰</param>
     /// <returns>解密後字串</returns>
-    public static string aesDecryptBase64(string SourceStr, string CryptoKey)
+    public static string Decrypt(string SourceStr, string CryptoKey)
     {
         string decrypt = "";
         try
@@ -76,6 +98,31 @@ public class AesCryptHelper
             throw ex;
         }
         return decrypt;
+    }
+ 
+    public static string Decrypt(string data, string key, string iv)
+    {
+        try
+        {
+            byte[] keyArray = Encoding.UTF8.GetBytes(key);
+            byte[] ivArray = Encoding.UTF8.GetBytes(iv);
+            byte[] toEncryptArray = Convert.FromBase64String(data);
+
+            RijndaelManaged rDel = new RijndaelManaged();
+            rDel.Key = keyArray;
+            rDel.IV = ivArray;
+            rDel.Mode = CipherMode.CBC;
+            rDel.Padding = PaddingMode.PKCS7;
+
+            ICryptoTransform cTransform = rDel.CreateDecryptor();
+            byte[] resultArray = cTransform.TransformFinalBlock(toEncryptArray, 0, toEncryptArray.Length);
+
+            return Encoding.UTF8.GetString(resultArray);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>

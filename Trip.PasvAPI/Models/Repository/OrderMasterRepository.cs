@@ -125,6 +125,18 @@ namespace Trip.PasvAPI.Models.Repository
 
         //////////////
 
+        public bool CancelOrder(string order_master_mid)
+        {
+            try
+            {
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
         public (OrderMasterModel model, int qty) CreateOrder(Int64 trip_order_oid, string plu, string locale, ProductRespModel prod, PackageRespModel pkg)
         {
             OrderMasterModel model = null;

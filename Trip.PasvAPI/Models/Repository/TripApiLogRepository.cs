@@ -7,15 +7,15 @@ namespace Trip.PasvAPI.Models.Repository
 {
     public class TripTransLogRepository
     {
-        public Int64 Insert(string request, string request_user)
+        public Int64 Insert(string request, string request_body, string request_user)
         {
             try
             {
                 using(var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @"INSERT INTO trip_trans_log (request, request_user) VALUES(:request::jsonb, :request_user) RETURNING log_oid";
+                    var sqlStmt = @"INSERT INTO trip_trans_log (request, request_body, request_user) VALUES(:request::jsonb, :request_body::jsonb, :request_user) RETURNING log_oid";
 
-                    return conn.ExecuteScalar<Int64>(sqlStmt, new { request, request_user });
+                    return conn.ExecuteScalar<Int64>(sqlStmt, new { request, request_body, request_user });
                 }
             }
             catch(Exception ex)
@@ -24,15 +24,15 @@ namespace Trip.PasvAPI.Models.Repository
             } 
         }
 
-        public void SetResponse(Int64 log_oid, string response, string response_user)
+        public void SetResponse(Int64 log_oid, string response, string response_body, string response_user)
         {
             try
             { 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @"UPDATE trip_trans_log SET response=:response::jsonb, response_user=:response_user, response_time=now() WHERE log_oid=:log_oid ";
+                    var sqlStmt = @"UPDATE trip_trans_log SET response=:response::jsonb, response_body=:response_body::jsonb, response_user=:response_user, response_time=now() WHERE log_oid=:log_oid ";
                      
-                    conn.Execute(sqlStmt, new { response, response_user, log_oid });
+                    conn.Execute(sqlStmt, new { response, response_user, response_body, log_oid });
                 }
             }
             catch (Exception ex)

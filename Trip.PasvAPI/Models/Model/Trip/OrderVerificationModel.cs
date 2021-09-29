@@ -24,11 +24,11 @@ namespace Trip.PasvAPI.Models.Model.Trip
             public string PLU { get; set; }
             public string useStartDate { get; set; }
             public string useEndDate { get; set; }
-            public float price { get; set; }
+            public float ?price { get; set; }
             public string priceCurrency { get; set; }
-            public float cost { get; set; }
+            public float ?cost { get; set; }
             public string costCurrency { get; set; }
-            public int quantity { get; set; }
+            public int ?quantity { get; set; }
             // 出行人节点
             public List<PassengerModel> passengers { get; set; }
             public class PassengerModel
@@ -50,11 +50,11 @@ namespace Trip.PasvAPI.Models.Model.Trip
                 public string cardIssueDate { get; set; }
                 public string cardValidDate { get; set; }
                 public string birthPlace { get; set; }
-                public float height { get; set; }
-                public float weight { get; set; }
-                public float myopiaDegreeL { get; set; }
-                public float myopiaDegreeR { get; set; }
-                public float shoeSize { get; set; }
+                public float ?height { get; set; }
+                public float ?weight { get; set; }
+                public float ?myopiaDegreeL { get; set; }
+                public float ?myopiaDegreeR { get; set; }
+                public float ?shoeSize { get; set; }
             }
 
             public List<AdjunctionModel> adjunctions { get; set; }

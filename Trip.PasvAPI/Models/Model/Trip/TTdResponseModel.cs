@@ -11,6 +11,6 @@ namespace Trip.PasvAPI.Models.Model.Trip
             public string resultMessage { get; set; }
         }
 
-        public dynamic body { get; set; }
+        public string body { get; set; }
     } 
 }
