@@ -44,7 +44,7 @@ namespace Trip.PasvAPI.Models.Repository
                 {
                     var sqlStmt = @$"SELECT * FROM trip_order WHERE ota_order_id=:ota_order_id";
 
-                    return conn.QuerySingleOrDefault<TripOrderModel>(sqlStmt);
+                    return conn.QuerySingleOrDefault<TripOrderModel>(sqlStmt, new { ota_order_id });
                 }
             }
             catch (Exception ex)

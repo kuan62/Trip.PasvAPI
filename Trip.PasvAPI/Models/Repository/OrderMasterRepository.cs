@@ -51,18 +51,33 @@ namespace Trip.PasvAPI.Models.Repository
             }
         }
 
-        public OrderMasterModel GetOrder(string kkday_order_mid)
+        public OrderMasterModel GetOrder(string kkday_order_master_mid = null, string kkday_order_mid = null)
         {
             try
-            { 
+            {
+                if (string.IsNullOrEmpty(kkday_order_master_mid) && string.IsNullOrEmpty(kkday_order_mid)) return null;
+
                 SqlMapper.AddTypeHandler(typeof(BookingDataModel), new ObjectJsonMapper());
                 SqlMapper.AddTypeHandler(typeof(Dictionary<string, object>), new ObjectJsonMapper());
 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"SELECT * FROM order_master WHERE kkday_order_mid=:kkday_order_mid";
+                    var sqlStmt = @$"SELECT * FROM order_master WHERE 1=1 ";
+                    var sqlParams = new DynamicParameters();
 
-                    return conn.QuerySingleOrDefault<OrderMasterModel>(sqlStmt, new { kkday_order_mid });
+                    if (!string.IsNullOrEmpty(kkday_order_master_mid))
+                    {
+                        sqlStmt += " AND kkday_order_master_mid=:kkday_order_master_mid";
+                        sqlParams.Add("kkday_order_master_mid", kkday_order_master_mid);
+                    }
+
+                    if (!string.IsNullOrEmpty(kkday_order_mid))
+                    {
+                        sqlStmt += " AND kkday_order_mid=:kkday_order_mid";
+                        sqlParams.Add("kkday_order_mid", kkday_order_mid);
+                    }
+
+                    return conn.QuerySingleOrDefault<OrderMasterModel>(sqlStmt, sqlParams);
                 }
             }
             catch (Exception ex)
@@ -117,9 +132,8 @@ WHERE b.ota_order_id=:ota_order_id";
             }
         }
 
-        public (OrderMasterModel model, int qty) CreateDummyOrder(TripOrderModel req)
-        {
-            var qty = 10;
+        public OrderMasterModel CreateDummyOrder(TripOrderModel req)
+        { 
             var item = req.items.FirstOrDefault();
 
             // 加入旅客索引
@@ -140,6 +154,7 @@ WHERE b.ota_order_id=:ota_order_id";
                 kkday_order_mid = order_data.order_mid,
                 kkday_order_oid = order_data.order_oid,
                 booking_info = new BookingDataModel(),
+                status = "GO",
                 trip_order_oid = req.trip_order_oid,
                 trip_item_seq = 0,
                 trip_item_pax = trip_pax_lst.ToArray(),
@@ -149,8 +164,8 @@ WHERE b.ota_order_id=:ota_order_id";
             };
              
             Insert(model);
-             
-            return (model, qty);
+
+            return model;
         }
 
         #endregion Dummy Operations --- start
@@ -163,7 +178,7 @@ WHERE b.ota_order_id=:ota_order_id";
             {
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"UPDATE order_master SET satus='CX' WHERE kkday_order_master_mid=:order_master_mid ";
+                    var sqlStmt = @$"UPDATE order_master SET status='CX' WHERE kkday_order_master_mid=:order_master_mid ";
 
                     var result = conn.Execute(sqlStmt, new { order_master_mid });
                     return result > 0 ? true : false;

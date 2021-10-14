@@ -13,10 +13,10 @@ namespace Trip.PasvAPI.AppCode
             {
                 case "NW":
                 case "GO":
-                    result = (int)TTdOrderStatusEnum.NEW_WAIT;
+                    result = (int)TTdOrderStatusEnum.NEW_CONFIRMED;
                     break;
                 case "GO_OK":
-                    result = (int)TTdOrderStatusEnum.NEW_CONFIRMED;
+                    result = (int)TTdOrderStatusEnum.ALL_USED;
                     break;
                 case "CX_ING":
                     result = (int)TTdOrderStatusEnum.CANCEL_APPLY;

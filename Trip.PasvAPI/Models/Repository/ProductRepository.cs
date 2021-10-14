@@ -47,6 +47,23 @@ namespace Trip.PasvAPI.Models.Repository
             }
         }
 
+        public int GetDummyProductQty(string plu)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"SELECT qty FROM dummy_product WHERE plu=:plu ";
+
+                    return conn.QuerySingleOrDefault<int>(sqlStmt, new { plu });
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
         #endregion Dummy 沙箱商品 --- end
 
         ////////////////
