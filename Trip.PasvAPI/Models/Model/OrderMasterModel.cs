@@ -10,9 +10,9 @@ namespace Trip.PasvAPI.Models.Model
 		public string kkday_order_mid { get; set; }
 		public Int64 kkday_order_oid { get; set; }
 		public Int64 trip_order_oid { get; set; }
-		public int trip_item_seq { get; set; }
-		public List<int> trip_item_pax { get; set; }
+		public int trip_item_seq { get; set; }  
 		public string trip_item_plu { get; set; }
+		public int [] trip_item_pax { get; set; }
 		public string status { get; set; }
 		public BookingDataModel booking_info { get; set; }
 		public Dictionary<string, object> param1 { get; set; }
@@ -20,5 +20,14 @@ namespace Trip.PasvAPI.Models.Model
 		public DateTime? create_time { get; set; }
 		public string modify_user { get; set; }
 		public DateTime? modify_time { get; set; }
+	}
+
+	public class OrderMasterExModel : OrderMasterModel
+    {
+		public string ota_order_id { get; set; }
+		public string trip_item_id { get; set; }
+		public string use_start_date { get; set; }
+		public string use_end_date { get; set; }
+		public int use_quantity { get; set; }
 	}
 }

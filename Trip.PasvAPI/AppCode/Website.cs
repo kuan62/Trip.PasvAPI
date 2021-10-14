@@ -23,26 +23,14 @@ namespace Trip.PasvAPI.AppCode
         // B2D API User Token
         public string B2dApiAuthorToken { get; private set; }
 
-        // Agent Currency
+        public string AgentAccount { get; private set; }
+        public string SignKey { get; private set; }
         public string AgentCurrency { get; private set; }
 
         // 主機站台識別
         public string StationID { get { return Dns.GetHostName(); } }
 
-        #region ClaimPrinciple 版本序號
-
-        public string MemberPrincipleVersion
-        {
-            get { return "0.1.0.0"; }
-        }
-
-        public string StaffPrincipleVersion
-        {
-            get { return "0.1.0.0"; }
-        }
-
-        #endregion ClaimPrinciple 版本序號
-
+  
         private Website()
         {
             //
@@ -56,6 +44,8 @@ namespace Trip.PasvAPI.AppCode
 
             this.SqlConnectionString = config["Database:Npgsql"];
             this.B2dApiAuthorToken = config["B2D_API:AuthorToken"];
+            this.AgentAccount = config["Proxy:Trip:Account"];
+            this.SignKey = config["Proxy:Trip:SignKey"];
             this.AgentCurrency = config["AgentCurrency"];
 
             LoadLog4netConfig();

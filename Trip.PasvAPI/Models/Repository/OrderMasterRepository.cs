@@ -54,7 +54,7 @@ namespace Trip.PasvAPI.Models.Repository
         public OrderMasterModel GetOrder(string kkday_order_mid)
         {
             try
-            {
+            { 
                 SqlMapper.AddTypeHandler(typeof(BookingDataModel), new ObjectJsonMapper());
                 SqlMapper.AddTypeHandler(typeof(Dictionary<string, object>), new ObjectJsonMapper());
 
@@ -62,7 +62,27 @@ namespace Trip.PasvAPI.Models.Repository
                 {
                     var sqlStmt = @$"SELECT * FROM order_master WHERE kkday_order_mid=:kkday_order_mid";
 
-                    return conn.QuerySingleOrDefault<OrderMasterModel>(sqlStmt);
+                    return conn.QuerySingleOrDefault<OrderMasterModel>(sqlStmt, new { kkday_order_mid });
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        public string GetOrderMasterMid(string ota_order_id)
+        {
+            try
+            { 
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"SELECT a.kkday_order_master_mid
+FROM order_master a
+JOIN trip_order b ON a.trip_order_oid=b.trip_order_oid
+WHERE b.ota_order_id=:ota_order_id";
+
+                    return conn.QuerySingleOrDefault<string>(sqlStmt, new { ota_order_id });
                 }
             }
             catch (Exception ex)
@@ -97,27 +117,39 @@ namespace Trip.PasvAPI.Models.Repository
             }
         }
 
-        public (OrderMasterModel model, int qty) CreateDummyOrder(Int64 trip_order_oid, string plu)
+        public (OrderMasterModel model, int qty) CreateDummyOrder(TripOrderModel req)
         {
+            var qty = 10;
+            var item = req.items.FirstOrDefault();
+
+            // 加入旅客索引
+            var trip_pax_lst = new List<int>();
+            item.passengers.ForEach(p => {
+                var idx = item.passengers.IndexOf(p);
+                trip_pax_lst.Add(idx);
+            });
+
+            // 建立訂單(包括 order_master_mid)
             var order_master_mid = GetDummyOrderMasterMid();
             var order_data = GetDummyOrderData();
-            var trip_pax_lst = new List<int>();
-            
+
+            // 新增記錄到 order_master 資料表
             var model = new OrderMasterModel()
             {
                 kkday_order_master_mid = order_master_mid,
                 kkday_order_mid = order_data.order_mid,
                 kkday_order_oid = order_data.order_oid,
-                trip_order_oid = trip_order_oid,
-                trip_item_seq = 1,
-                trip_item_pax = trip_pax_lst,
-                trip_item_plu = plu,
+                booking_info = new BookingDataModel(),
+                trip_order_oid = req.trip_order_oid,
+                trip_item_seq = 0,
+                trip_item_pax = trip_pax_lst.ToArray(),
+                trip_item_plu = item.PLU,
                 create_user = "SYSTEM",
                 create_time = DateTime.Now
             };
-
-            var qty = 10;
-
+             
+            Insert(model);
+             
             return (model, qty);
         }
 
@@ -129,13 +161,48 @@ namespace Trip.PasvAPI.Models.Repository
         {
             try
             {
-                return true;
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"UPDATE order_master SET satus='CX' WHERE kkday_order_master_mid=:order_master_mid ";
+
+                    var result = conn.Execute(sqlStmt, new { order_master_mid });
+                    return result > 0 ? true : false;
+                }
             }
             catch (Exception ex)
             {
                 throw ex;
             }
         }
+
+        public List<OrderMasterExModel> QueryOrder(string order_master_mid)
+        {
+            try
+            {
+                SqlMapper.AddTypeHandler(typeof(BookingDataModel), new ObjectJsonMapper());
+                SqlMapper.AddTypeHandler(typeof(Dictionary<string, object>), new ObjectJsonMapper());
+
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @"
+SELECT a.*, b.ota_order_id, b.items->a.trip_item_seq as item,
+  b.items->a.trip_item_seq->>'itemId' as trip_item_id,
+  b.items->a.trip_item_seq->>'useStartDate' as use_start_date,
+  b.items->a.trip_item_seq->>'useEndDate' as use_end_date,
+  b.items->a.trip_item_seq->>'quantity' as use_quantity
+FROM order_master a
+LEFT JOIN trip_order b ON a.trip_order_oid = b.trip_order_oid
+WHERE a.kkday_order_master_mid = :kkday_order_master_mid ";
+
+                    return conn.Query<OrderMasterExModel>(sqlStmt, new { kkday_order_master_mid = order_master_mid }).ToList();
+
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        } 
 
         public (OrderMasterModel model, int qty) CreateOrder(Int64 trip_order_oid, string plu, string locale, ProductRespModel prod, PackageRespModel pkg)
         {

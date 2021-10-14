@@ -25,7 +25,10 @@ namespace Trip.PasvAPI.Models.Model.Trip
 	
 	public class CancelOrderRespModel
 	{
+		// 1.取消已确认（当confirmType =1/2时可同步返回确认结果）
+		// 2.取消待确认（当confirmType =2时需异步返回确认结果的）
 		public int supplierConfirmType { get; set; }
+
 		public List<ItemNodeModel> items { get; set; }
 		public class ItemNodeModel
 		{

@@ -23,9 +23,9 @@ namespace Trip.PasvAPI.Models.Model.Trip
             public string useStartDate { get; set; }
             public string useEndDate { get; set; }
             public int orderStatus { get; set; }
-            public int quantity { get; set; }
-            public int useQuantity { get; set; }
-            public int cancelQuantity { get; set; }
+            public int quantity { get; set; } // 订单数量
+            public int useQuantity { get; set; } // 实际使用数量
+            public int cancelQuantity { get; set; } // 实际取消数量
         }
     }
 }

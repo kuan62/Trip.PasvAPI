@@ -2,11 +2,14 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Dapper;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Npgsql;
 using Trip.PasvAPI.AppCode;
 using Trip.PasvAPI.Models.Model;
+using Trip.PasvAPI.Models.Model.Trip;
 using Trip.PasvAPI.Proxy;
 
 namespace Trip.PasvAPI.Models.Repository
@@ -24,7 +27,30 @@ namespace Trip.PasvAPI.Models.Repository
 
 
         ////////////////
-        
+
+        #region Dummy 沙箱商品 --- start
+
+        public DummyProductModel GetDummyProduct(string plu)
+        {
+            try
+            { 
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"SELECT * FROM dummy_product WHERE plu=:plu ";
+
+                    return conn.QuerySingleOrDefault<DummyProductModel>(sqlStmt, new { plu });
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        #endregion Dummy 沙箱商品 --- end
+
+        ////////////////
+
         #region 查詢 KKday 商品
 
         public ProductRespModel GetProduct(string token, Int64 prod_oid, string locale)

@@ -56,15 +56,15 @@ namespace Trip.PasvAPI.Models.Repository
 
         //////////////
 
-        public bool IsDuplicated(string sequence_id)
+        public bool IsDuplicated(string ota_order_id)
         {
             try
             { 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"SELECT CASE WHEN Count(*) > 0 THEN true ELSE false END is_duplicated FROM trip_order WHERE sequence_id=:sequence_id";
+                    var sqlStmt = @$"SELECT CASE WHEN Count(*) > 0 THEN true ELSE false END is_duplicated FROM trip_order WHERE ota_order_id=:ota_order_id";
 
-                    var is_duplicated = conn.QuerySingle<bool>(sqlStmt, sequence_id );
+                    var is_duplicated = conn.QuerySingle<bool>(sqlStmt, new { ota_order_id });
                     return is_duplicated; 
                 }
             }

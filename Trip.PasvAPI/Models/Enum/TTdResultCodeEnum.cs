@@ -9,6 +9,7 @@ namespace Trip.PasvAPI.Models.Enum
         PARSING_ERROR = 0001, //报文解析失败 Message parsing failed
         WRONG_SIGNATURE = 0002, //签名错误 Wrong Signature
         INCORRECT_SUPPLUER = 0003, //供应商账户信息不正确 Incorrect supplier account information
+
         INVALID_PLU = 1001, //产品PLU不存在错误 Product PLU does not exist error
         PRODUCT_REMOVED = 1002, //产品已经下架 The product has been removed
         INSUFFICIENT_INVENTORY = 1003, //库存不足 Inventory shortage
@@ -21,6 +22,16 @@ namespace Trip.PasvAPI.Models.Enum
         UNGROUP = 1010, //不成团 Unable to be a group
         // 1100-1199 自行定义 Self-definition
         INTERNAL_ERROR = 1100,
-        DUPLICATED = 1101
+        DUPLICATED = 1101,
+
+        CX_ORDER_NOT_FOUND = 2001, // 该订单号不存在 The order number does not exist	
+        CX_ORDER_USED = 2002, // 该订单已经使用 The order has been used	
+        CX_ORDER_EXPIRED = 2003, //	该订单已过期，不可退 The order is expired and non-refundable	
+        CX_QTY_INCORRECT = 2004, //	取消数量不正确 Canceled quantity is incorrect	
+        CX_NO_REFUND = 2005, //	该产品不允许退订 This product is non-refundable
+        CX_SUP_REJECT = 2006, // 供应商不支持退订 Supplier does not support cancellation   
+
+        QUERY_ORDER_NOT_FOUND = 4001  // 该订单号不存在
+
     }
 }
