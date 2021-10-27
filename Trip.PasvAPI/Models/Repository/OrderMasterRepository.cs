@@ -156,6 +156,7 @@ WHERE b.ota_order_id=:ota_order_id";
                 booking_info = new BookingDataModel(),
                 status = "GO",
                 trip_order_oid = req.trip_order_oid,
+                trip_sequence_id = req.sequence_id,
                 trip_item_seq = 0,
                 trip_item_pax = trip_pax_lst.ToArray(),
                 trip_item_plu = item.PLU,
@@ -172,15 +173,32 @@ WHERE b.ota_order_id=:ota_order_id";
 
         //////////////
 
-        public bool CancelOrder(string order_master_mid)
+        public void ChangeStatus(string order_master_mid, string status)
         {
             try
             {
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"UPDATE order_master SET status='CX' WHERE kkday_order_master_mid=:order_master_mid ";
+                    var sqlStmt = @$"UPDATE order_master SET status=:status WHERE kkday_order_master_mid=:order_master_mid ";
+                    conn.Execute(sqlStmt, new { order_master_mid, status }); 
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
 
-                    var result = conn.Execute(sqlStmt, new { order_master_mid });
+        public bool CancelApply(string order_master_mid, string trip_sequence_id)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"UPDATE order_master SET status='CX_ING', trip_sequence_id=:trip_sequence_id
+WHERE kkday_order_master_mid=:order_master_mid ";
+
+                    var result = conn.Execute(sqlStmt, new { order_master_mid, trip_sequence_id });
                     return result > 0 ? true : false;
                 }
             }
@@ -317,8 +335,8 @@ WHERE a.kkday_order_master_mid = :kkday_order_master_mid ";
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
                     var sqlStmt = @$"INSERT INTO order_master(kkday_order_master_mid, kkday_order_mid, kkday_order_oid,
-  trip_order_oid, trip_item_seq, trip_item_pax, trip_item_plu, status, booking_info, param1, create_user)
-VALUES(:kkday_order_master_mid, :kkday_order_mid, :kkday_order_oid, :trip_order_oid, :trip_item_seq, :trip_item_pax, :trip_item_plu,
+  trip_order_oid, trip_sequence_id, trip_item_seq, trip_item_pax, trip_item_plu, status, booking_info, param1, create_user)
+VALUES(:kkday_order_master_mid, :kkday_order_mid, :kkday_order_oid, :trip_order_oid, :trip_sequence_id, :trip_item_seq, :trip_item_pax, :trip_item_plu,
   :status, :booking_info::jsonb, :param1::jsonb, :create_user) ";
 
                     conn.Execute(sqlStmt, req);

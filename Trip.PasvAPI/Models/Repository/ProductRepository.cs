@@ -33,7 +33,8 @@ namespace Trip.PasvAPI.Models.Repository
         public DummyProductModel GetDummyProduct(string plu)
         {
             try
-            { 
+            {
+                SqlMapper.AddTypeHandler(typeof(Dictionary<string, object>), new ObjectJsonMapper());
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
                     var sqlStmt = @$"SELECT * FROM dummy_product WHERE plu=:plu ";

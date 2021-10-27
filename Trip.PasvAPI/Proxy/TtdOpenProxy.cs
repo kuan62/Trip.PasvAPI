@@ -12,10 +12,10 @@ namespace Trip.PasvAPI.Proxy
 
         public TtdOpenProxy(IConfiguration config)
         {
-            _endpoint_url = config["Proxy:TripTde:Url"];
+            _endpoint_url = config["Proxy:Trip:Url"];
         }
 
-        public async System.Threading.Tasks.Task<string> PostAsync(string endpoint_url, string json_data)
+        public async System.Threading.Tasks.Task<string> PostAsync(string json_data)
         {
             try
             {
@@ -26,31 +26,22 @@ namespace Trip.PasvAPI.Proxy
 
                     using (var client = new HttpClient(handler))
                     {
-                        var strBase64 = ""; // HMACSHA256Helper.Base64(json_data);
-                        var apiSignature = ""; // HMACSHA256Helper.HMACSHA256(str_base64, _ApiSecret);
-
-                        Console.WriteLine("json_date: " + json_data);
-                        Console.WriteLine("apiSignature: " + apiSignature);
-
-                        //client.DefaultRequestHeaders.Add("X-API-Signature", apiSignature);
-                        //client.DefaultRequestHeaders.Add("Authorization", _Authorization);
                         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                         using (HttpContent content = new StringContent(json_data))
                         {
                             content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                            using (var response = await client.PostAsync($"{ _endpoint_url }", content))
+                            using (var response = await client.PostAsync(_endpoint_url, content))
                             {
                                 //如果 httpstatus code 不是 200 時會直接丟出 exception
                                 //response.EnsureSuccessStatusCode();
 
-                                if (response.StatusCode != System.Net.HttpStatusCode.OK ||
-                                    response.StatusCode != System.Net.HttpStatusCode.NoContent)
-                                {
-                                    //fail
+                                //if (response.StatusCode != System.Net.HttpStatusCode.OK ||
+                                //    response.StatusCode != System.Net.HttpStatusCode.NoContent)
+                                //{
+                                //    throw new Exception($"Http Response.StatusCode={ response.StatusCode }");
+                                //}
 
-                                }
-                                Website.Instance.logger.Info($"BenzProxy.json_date:{json_data};response.StatusCode:{response.StatusCode}");
                                 return await response.Content.ReadAsStringAsync();
                             }
                         }

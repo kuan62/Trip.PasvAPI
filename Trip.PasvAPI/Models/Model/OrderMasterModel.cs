@@ -10,7 +10,8 @@ namespace Trip.PasvAPI.Models.Model
 		public string kkday_order_mid { get; set; }
 		public Int64 kkday_order_oid { get; set; }
 		public Int64 trip_order_oid { get; set; }
-		public int trip_item_seq { get; set; }  
+		public int trip_item_seq { get; set; }
+		public string trip_sequence_id { get; set; }
 		public string trip_item_plu { get; set; }
 		public int [] trip_item_pax { get; set; }
 		public string status { get; set; }

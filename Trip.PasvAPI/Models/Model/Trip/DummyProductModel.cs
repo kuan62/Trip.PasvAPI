@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+
 namespace Trip.PasvAPI.Models.Model.Trip
 {
     public class DummyProductModel
@@ -24,6 +26,7 @@ namespace Trip.PasvAPI.Models.Model.Trip
 		public string voucher_type { get; set; }
 		public string delivery_type { get; set; }
 		public string create_user { get; set; }
+		public Dictionary<string,object> param1 { get; set; }
 		public DateTime? create_time { get; set; }
 		public string modify_user { get; set; }
 		public DateTime? modify_time { get; set; }

@@ -32,6 +32,28 @@ namespace Trip.PasvAPI.Models.Repository
             }
         }
 
+        public TripOrderModel GetOrder(Int64 trip_order_oid)
+        {
+            try
+            {
+                SqlMapper.AddTypeHandler(typeof(List<CreateOrderReqModel.OrderContactModel>), new ObjectJsonMapper());
+                SqlMapper.AddTypeHandler(typeof(List<CreateOrderReqModel.OrderCouponModel>), new ObjectJsonMapper());
+                SqlMapper.AddTypeHandler(typeof(List<CreateOrderReqModel.OrderItemModel>), new ObjectJsonMapper());
+
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"SELECT * FROM trip_order WHERE trip_order_oid=:trip_order_oid";
+
+                    return conn.QuerySingleOrDefault<TripOrderModel>(sqlStmt, new { trip_order_oid });
+                }
+            }
+            catch (Exception ex)
+            {
+                Website.Instance.logger.Fatal($"Exception: Message={ex.Message}, StackTrace={ex.StackTrace}");
+                throw ex;
+            }
+        }
+
         public TripOrderModel GetOrder(string ota_order_id)
         {
             try
