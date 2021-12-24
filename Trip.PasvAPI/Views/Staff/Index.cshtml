@@ -1,0 +1,245 @@
+﻿@using System.Globalization
+@{
+    var locale = "zh-TW";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/lib/bootstrap3-typeahead/dist/css/bootstrap4-typeahead.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-table/dist/bootstrap-table.css" />
+    <link rel="stylesheet" href="~/lib/select2/dist/css/select2.min.css" />
+    <link rel="stylesheet" href="~/lib/select2/dist/css/select2-bootstrap.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-validator/dist/css/bootstrapValidator.css" />
+
+    <style type="text/css">
+        th {
+            background-color: #F7F2E0;
+        }
+    </style>
+}
+@section Scripts {
+    <script src="~/lib/bootstrap3-typeahead/dist/js/bootstrap3-typeahead.js"></script>
+    <script src="~/lib/bootstrap-table/dist/bootstrap-table.js"></script>
+    <script src="~/lib/bootstrap-table/dist/locale/bootstrap-table-@(locale).js"></script>
+    <script src="~/lib/select2/dist/js/select2.js"></script> 
+    <script src="~/lib/bootstrap-validator/dist/js/bootstrapValidator.js"></script>
+    <script src="~/lib/bootstrap-validator/dist/js/language/@(locale).js"></script>
+}
+
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="#">首頁</a></li> 
+                    <li class="breadcrumb-item active" aria-current="page">員工管理</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-sm-12">
+
+            <div class="row">
+                <div class="col-sm-5 form-group">
+                    <label>員工帳號</label>
+                    <input type="text" id="search_account" class="form-control" placeholder="請輸入帳號(Email)">
+                </div>
+                <div class="col-sm-3 form-group">
+                    <label>員工姓名</label>
+                    <input type="text" id="search_name" class="form-control" placeholder="請輸入姓名文字">
+                </div>
+                <div class="col-sm-4 form-group align-self-end">
+                    <a href="javascript:void(0);" class="btn btn-primary mr-2" onclick="Refresh();">查詢</a>
+                    <a href="javascript:void(0);" class="btn btn-default mr-2" onclick="RestFilter();">重置</a>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <a href="@Url.Content("~/Staff/Add")" class="btn btn-primary" data-backdrop="static" data-action="add"
+                           data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="新增員工">
+                            <i class="fa fa-plus" aria-hidden="true"></i> 新增
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div id="list_panel" class="row">
+                @*查詢結果*@
+                <div class="col-md-12">
+                    <table id="table"
+                           data-toggle="table"
+                           data-url="@Url.Content("~/Staff/FetchData")"
+                           data-sort-name="staff_oid" data-sort-order="desc"
+                           data-page-size="50"
+                           data-page-number="1"
+                           data-side-pagination="server"
+                           data-id-field="staff_oid"
+                           data-page-list="[10, 25, 50, 100, 200, All]"
+                           data-pagination="true">
+                        <thead>
+                            <tr>
+                                <th data-field="staff_oid" data-align="center" data-sortable="true" data-formatter="ColumCheckBox">
+                                    <input type="checkbox" class="check-all mr-2" />序號
+                                </th>
+                                <th data-field="staff_account">帳號</th>
+                                <th data-field="staff_name" data-sortable="true">姓名</th>
+                                <th data-field="status_name">狀態</th>
+                                <th data-field="type_name">類型</th>
+                                <th data-formatter="ColumnUser">最後更新者</th>
+                                <th data-width="180" data-width-unit="px" data-formatter="TableActions"></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div id="CommonModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title"></h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">關閉</button>
+                <button type="button" class="btn btn-primary confirm">確定</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<script type="text/javascript">
+    $(function () {
+
+        $(document).on('shown.bs.modal', '.modal', function (e) {
+            _modal = this;
+            //console.log("Modal ID --> " + this.id);
+            if (e.relatedTarget == undefined) return; // call js directly!
+
+            link = $(e.relatedTarget);
+            if (link.attr("data-title") != "" || link.attr("data-title") != undefined) {
+                $(this).find(".modal-title").html(link.attr("data-title"));
+            }
+
+            action = link.attr("data-action");
+            //console.log("modal-data-action:" + action);
+            if (action == undefined) return;
+
+            rel_url = link.attr("href") == undefined ? link.attr("data-rel") : link.attr("href");
+
+            $(this).find(".modal-body").html('<img src="/images/loading.gif" style="width:32px;" />').load(rel_url, function () {
+                _cmd = "";
+                if (action == "add") _cmd = "Insert";
+                if (action == "edit") _cmd = "Update";
+                if (action == "psw") _cmd = "Password";
+                if (_cmd != "") $(_modal).find(".modal-footer > .confirm").unbind("click").bind("click", function () { ActionToItem(_cmd); });
+
+          });
+        });
+
+        $(document).on('hide.bs.modal', '.modal', function (e) {
+            $(this).find(".modal-body").empty();
+        });
+
+    }); // document.ready
+
+    function ColumCheckBox(value, row, index) {
+        return [
+            '<input type="checkbox" class="check-item mr-2" value="' + row.staff_oid + '" /> ',
+            row.staff_oid
+        ].join('');
+    }
+
+    function ColumnUser(value, row, index) {
+        return [
+            '<span>' + (row.modify_user == null ? row.create_user : row.modify_user) + '</span> <br/>',
+            '<span>' + (row.modify_user == null ? row.create_date.substring(0, 10) : row.modify_date.substring(0, 10)) + '</span>'
+        ].join('');
+    }
+
+    function TableActions(value, row, index) {
+        return [
+            '<a href="@Url.Content("~/Staff/Edit")/' + row.staff_oid + '" class="btn btn-success mb-2" data-backdrop="static"',
+            '   data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="員工編輯"',
+            '   data-action="edit">編輯</a> ',
+             '<a href="@Url.Content("~/Staff/Password")/' + row.staff_oid + '" class="btn btn-danger mb-2" data-backdrop="static"',
+            '   data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="變更密碼"',
+            '   data-action="psw">密碼</a> '
+        ].join('');
+    }
+
+    function RestFilter() {
+        $("#search_account").val(""); $("#search_name").val("");
+    }
+
+    function Refresh() {
+        _filterCond = JSON.stringify({ "account": $("#search_account").val(), "name": $("#search_name").val() });
+        // console.log("filterCond:" + _filterCond);
+        $("#table").bootstrapTable("refresh", {
+            url: _root_path + "Staff/FetchData?filter=" + _filterCond
+        });
+    }
+
+    function ActionToItem(action) {
+        if (action == "Password") {
+            $('#psw_form').data("bootstrapValidator").validate();
+            if (!$('#psw_form').data("bootstrapValidator").isValid()) return false;
+
+            var req = {
+                oid: parseInt($("#staff_oid").val()), psw: $('#psw2').val()
+            }
+
+            $.getJSON(_root_path + "Staff/SetPassword", req,  function (result) {
+                if (result.status) {
+                    $('#CommonModal').modal("hide");
+                }
+                else {
+                    alert('作業失敗: ' + result.msg);
+                }
+            });
+
+        } else {
+            $('#staff_form').data("bootstrapValidator").validate();
+            if (!$('#staff_form').data("bootstrapValidator").isValid()) return false;
+
+            var req = {
+                staff_oid: parseInt($("#staff_oid").val()), staff_account: $('#staff_account').val(), staff_name: $('#staff_name').val(),
+                staff_status: $('#staff_status').val(), staff_type: $('#staff_type').val()
+            }
+
+            // console.log(JSON.stringify(req));
+
+            $.ajax({
+                type: "POST",
+                url: _root_path + "Staff/" + action,
+                contentType: "application/json; charset=utf-8",
+                data: JSON.stringify(req),
+                dataType: "json",
+                cache: false,
+                async: false,
+                success: function (result) {
+                    if (result.status) {
+                        window.location.reload();
+                    }
+                    else {
+                        alert('作業失敗: ' + result.msg);
+                    }
+                }
+            });
+        }
+    }
+
+</script>

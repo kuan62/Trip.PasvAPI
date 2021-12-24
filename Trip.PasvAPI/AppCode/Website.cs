@@ -26,10 +26,11 @@ namespace Trip.PasvAPI.AppCode
         public string AgentAccount { get; private set; }
         public string SignKey { get; private set; }
         public string AgentCurrency { get; private set; }
+        public string AesCryptoKey { get; private set; }
 
         // 主機站台識別
         public string StationID { get { return Dns.GetHostName(); } }
-
+     
   
         private Website()
         {
@@ -47,6 +48,7 @@ namespace Trip.PasvAPI.AppCode
             this.AgentAccount = config["Proxy:Trip:Account"];
             this.SignKey = config["Proxy:Trip:SignKey"];
             this.AgentCurrency = config["AgentCurrency"];
+            this.AesCryptoKey = config["AesCryptoKey"];
 
             LoadLog4netConfig();
             logger.Debug("StartUp!!!!!");

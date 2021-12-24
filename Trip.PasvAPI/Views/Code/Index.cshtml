@@ -1,0 +1,243 @@
+﻿@using Trip.PasvAPI.Models.Repository 
+@using System.Globalization
+
+@inject CodeRepository codeRepos 
+@{
+    ViewData["Title"] = "代碼編輯";
+
+    var codeTypes = codeRepos.GetCodeTypes();
+}
+@section Styles {
+    <link rel="stylesheet" href="~/lib/bootstrap3-typeahead/dist/css/bootstrap4-typeahead.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-table/dist/bootstrap-table.css" />
+
+    <style type="text/css">
+        section.locale-label div label {
+            color: #333;
+        }
+
+        th {
+            background-color: #F7F2E0;
+        }
+    </style>
+}
+@section Scripts {
+    <script src="~/lib/bootstrap3-typeahead/dist/js/bootstrap3-typeahead.js"></script>
+    <script src="~/lib/bootstrap-table/dist/bootstrap-table.js"></script>
+    <script src="~/lib/bootstrap-table/dist/locale/bootstrap-table-@(CultureInfo.CurrentCulture).js"></script>
+}
+ 
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="#">首頁</a></li>
+                    <li class="breadcrumb-item active">系統維護</li>
+                    <li class="breadcrumb-item active" aria-current="page">代碼管理</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <form>
+                <ul class="list-inline">
+                    <li class="list-inline-item">
+                        代碼類型:
+                    </li>
+                    <li class="list-inline-item">
+                        <select id="codetype_lst" class="form-control" style="width:240px;" onchange="Refresh();">
+                            <option value="">請選擇</option>
+                            @foreach (var item in codeTypes)
+                            {
+                <option value="@item">@item</option>}
+                        </select>
+                    </li>
+                    <li class="list-inline-item">
+                        <a href="@Url.Content("~/Code/Add/")" class="btn btn-primary" data-action="add" data-backdrop="static"
+                           data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="新增代碼">
+                            <i class="fa fa-plus" aria-hidden="true"></i> 新增
+                        </a>
+                    </li>
+                </ul>
+            </form>
+        </div>
+    </div>
+    <div id="list_panel" class="row mt-2">
+        @*查詢結果*@
+        <div class="col-md-12">
+            <table id="table"
+                   data-toggle="table"
+                   data-url="@Url.Content("~/Code/FetchData")"
+                   data-sort-name="code_type" data-sort-order="asc"
+                   data-page-size="50"
+                   data-page-number="1"
+                   data-side-pagination="server"
+                   data-id-field="code_oid"
+                   data-page-list="[10, 25, 50, 100, 200, All]"
+                   data-pagination="true">
+                <thead>
+                    <tr>
+                        <th data-field="code_oid" data-align="center" data-sortable="true" data-formatter="ColumCheckBox">
+                            <input type="checkbox" class="check-all mr-2" />序號
+                        </th>
+                        <th data-field="code_type" data-sortable="true">代碼類型</th>
+                        <th data-field="code_no" data-sortable="true">代碼識別值</th>
+                        <th data-field="code_name">代碼名稱</th>
+                        <th data-field="sort">排序</th>
+                        <th data-formatter="ColumnUser">最後更新者</th>
+                        <th data-formatter="TableActions"></th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<div id="CommonModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title"></h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">關閉</button>
+                <button type="button" class="btn btn-primary confirm">確定</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript">
+
+    $(function () {
+
+        $(document).on('shown.bs.modal', '.modal', function (e) {
+            var _modal = this;
+            //console.log("Modal ID --> " + this.id);
+            if (e.relatedTarget == undefined) return; // call js directly!
+
+            link = $(e.relatedTarget);
+            if (link.attr("data-title") != "" || link.attr("data-title") != undefined) {
+                $(this).find(".modal-title").html(link.attr("data-title"));
+            }
+
+            rel_url = link.attr("href") == undefined ? link.attr("data-rel") : link.attr("href");
+            action = link.attr("data-action");
+            //console.log("data-action:" + action);
+            if (action == undefined) return;
+
+            $(this).find(".modal-body").html('<img src="/images/loading.gif" style="width:32px;" />').load(rel_url, function () {
+                _cmd = "";
+                if (action == "add") _cmd = "InsertItem";
+                if (action == "edit") _cmd = "UpdateItem";
+                if (_cmd != "") $(_modal).find(".modal-footer > .confirm").unbind("click").bind("click", function () { ActionToItem(_cmd); });
+            });
+        });
+
+        $(document).on('hide.bs.modal', '.modal', function (e) {
+            $(this).find(".modal-body").html('');
+        });
+
+    });
+
+    function Refresh() {
+        _filterCond = JSON.stringify({ code_type: $('#codetype_lst').val() });
+        $("#table").bootstrapTable("refresh", {
+            url: _root_path + "Code/FetchData?filter=" + _filterCond
+        });
+    }
+
+    function ColumCheckBox(value, row, index) {
+        // console.log("Row=" + JSON.stringify(row) + ", Value=" + value);
+        return [
+            '<input type="checkbox" class="check-item mr-2" value="' + row.code_oid + '" /> ',
+            row.code_oid
+        ].join('');
+    }
+
+    function ColumnUser(value, row, index) {
+        return [
+            '<span>' + (row.modify_user == null ? row.create_user : row.modify_user) + '</span> <br/>',
+            '<span>' + (row.modify_user == null ? row.create_date.substring(0, 10) : row.modify_date.substring(0, 10)) + '</span>'
+        ].join('');
+    }
+
+    function TableActions(value, row, index) {
+        // console.log("Row=" + JSON.stringify(row) + ", Value=" + value + ", Index=" + index);
+        return [
+            '<a href="@Url.Content("~/Code/Edit")/' + row.code_oid + '" class="btn btn-success" data-backdrop="static"',
+            '   data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="編輯代碼"',
+            '   data-action="edit">編輯</a>'
+        ].join('');
+    }
+
+    function ActionToItem(action) {
+        $('#code_form').data("bootstrapValidator").validate();
+        if (!$('#code_form').data("bootstrapValidator").isValid()) return false;
+
+        var req = {
+            code_oid: parseInt($("#code_oid").val()), code_type: $('#code_type').val(), code_no: $('#code_no').val(),
+            code_name: {}, sort: $('#sort').val()
+        }
+
+        $("input[id*='name']").each(function (n) {
+            var _id = $(this).attr("id");
+            var tokens = _id.split('_');
+
+            if ($(this).val() != "") {
+                req.code_name[tokens[1]] = $(this).val();
+            }
+        });
+
+        //console.log(JSON.stringify(req));
+
+        $.ajax({
+            type: "POST",
+            url: _root_path + "Code/" + action,
+            contentType: "application/json; charset=utf-8",
+            data: JSON.stringify(req),
+            dataType: "json",
+            cache: false,
+            async: false,
+            success: function (result) {
+                if (result.status) {
+                    Refresh();
+                    DismissCommonModal();
+                }
+                else {
+                    alert('作業失敗: ' + result.msg);
+                }
+            }
+        });
+    }
+
+    function DismissCommonModal() {
+        $("#CommonModal").modal('hide');
+        $("#CommonModal").removeData('bs.modal');
+    }
+
+    function BindTypeSearch() {
+        //console.log("Call BindTypeSearch...");
+
+        $('#code_type').typeahead({
+            minLength: 1,
+            items: 'all',
+            source: function (query, process) {
+                //console.log("Call AJAX for typeahead ")
+                return $.getJSON(_root_path + "Code/QueryCodeTypes/", { id: query }, function (data) {
+                    return process(data);
+                });
+            }
+        });
+    }
+</script>

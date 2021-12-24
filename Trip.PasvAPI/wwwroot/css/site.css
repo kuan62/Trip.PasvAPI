@@ -24,9 +24,15 @@ a {
   border-color: #1861ac;
 }
 
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
 /* Sticky footer styles
 -------------------------------------------------- */
-html {
+    html {
   font-size: 14px;
 }
 @media (min-width: 768px) {
@@ -69,3 +75,54 @@ body {
   white-space: nowrap;
   line-height: 60px; /* Vertically center the text there */
 }
+
+
+/* Custom styles
+-------------------------------------------------- */
+.btn-default {
+    color: #333;
+    background-color: #fff;
+    border-color: #ccc;
+}
+
+    .btn-default:focus {
+        color: #333;
+        background-color: #e6e6e6;
+        border-color: #8c8c8c;
+    }
+
+    .btn-default:hover {
+        color: #333;
+        background-color: #e6e6e6;
+        border-color: #adadad;
+    }
+
+    .btn-default:active {
+        color: #333;
+        background-color: #e6e6e6;
+        border-color: #adadad;
+    }
+
+.btn-light {
+    color: #333;
+    background-color: #fff;
+    border-color: #ccc;
+}
+
+    .btn-light:focus {
+        color: #333;
+        background-color: #e6e6e6;
+        border-color: #8c8c8c;
+    }
+
+    .btn-light:hover {
+        color: #333;
+        background-color: #e6e6e6;
+        border-color: #adadad;
+    }
+
+    .btn-light:active {
+        color: #333;
+        background-color: #e6e6e6;
+        border-color: #adadad;
+    }

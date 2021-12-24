@@ -26,6 +26,11 @@
     <None Remove="Models\Repository\" />
     <None Remove="AppCode\" />
     <None Remove="log4net" />
+    <None Remove="Views\Product\" />
+    <None Remove="Views\Login\" />
+    <None Remove="Views\Order\" />
+    <None Remove="Views\Staff\" />
+    <None Remove="Views\Code\" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Proxy\" />
@@ -34,5 +39,18 @@
     <Folder Include="Models\Model\Trip\" />
     <Folder Include="Models\Repository\" />
     <Folder Include="AppCode\" />
+    <Folder Include="Views\ProductMap\" />
+    <Folder Include="Views\Login\" />
+    <Folder Include="wwwroot\images\" />
+    <Folder Include="Views\Order\" />
+    <Folder Include="wwwroot\lib\bootstrap3-typeahead\dist\js\" />
+    <Folder Include="wwwroot\lib\bootstrap3-typeahead\dist\css\" />
+    <Folder Include="Views\Staff\" />
+    <Folder Include="Views\Code\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Remove="wwwroot\images\" />
+    <Content Remove="wwwroot\lib\bootstrap3-typeahead\dist\js\" />
+    <Content Remove="wwwroot\lib\bootstrap3-typeahead\dist\css\" />
   </ItemGroup>
 </Project>

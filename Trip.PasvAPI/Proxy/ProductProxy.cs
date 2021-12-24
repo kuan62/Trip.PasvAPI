@@ -19,6 +19,67 @@ namespace Trip.PasvAPI.Proxy
             _config = config;
         }
 
+        public string Search(string keyword, string authorToken, string locale = null)
+        {
+            try
+            {
+                var jsonResult = "";
+                var kkdayUrl = _config["B2D_API:Url"];
+                //var authorToken = Website.Instance.KKdayApiAuthorizeToken;
+
+                using (var handler = new HttpClientHandler())
+                {
+                    // Ignore Certificate Error!!
+                    handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+
+                    using (var client = new HttpClient(handler))
+                    {
+
+                        #region JSON Payload
+
+                        var req = new Dictionary<string, object>();
+                        req.Add("keywords", keyword); 
+                        req.Add("locale", locale ?? "zh-tw");
+                        req.Add("state", "tw");
+
+                        var content = JsonConvert.SerializeObject(req, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+                        // Console.WriteLine($"Product Req Payload => {content}");
+
+                        #endregion JSON Payload
+
+                        string reqUrl = $"{kkdayUrl}/Search";
+                        using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, reqUrl))
+                        {
+                            request.Headers.Add("Authorization", $"Bearer {authorToken}");
+                            request.Headers.Add("Accept", "application/json");
+                            // Add body content
+                            request.Content = new StringContent(
+                                content,
+                                Encoding.UTF8,
+                                "application/json"
+                            );
+
+                            var response = client.SendAsync(request).Result;
+                            jsonResult = response.Content.ReadAsStringAsync().Result;
+
+                            if (response.StatusCode != System.Net.HttpStatusCode.OK)
+                            {
+                               throw new Exception($"{response.StatusCode} => {JsonConvert.SerializeObject(jsonResult)} ");
+                            }
+                        }
+                    }
+                }
+
+                return jsonResult;
+            }
+            catch (Exception ex)
+            {
+
+                throw ex;
+            }
+        }
+
+
         public string GetProduct(ProductReqModel req, string authorToken)
         {
             try

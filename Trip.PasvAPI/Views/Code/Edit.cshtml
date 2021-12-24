@@ -1,0 +1,101 @@
+﻿@using Trip.PasvAPI.Models.Model
+
+@model CodeModel
+@{
+    Layout = null; 
+}
+<form id="code_form" class="form" role="form">
+    <input type="hidden" id="code_oid" value="@Model.code_oid" />
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-6 col-sm-6 col-xs-6">
+                <div class="form-group">
+                    <label for="code_type">類型</label>
+                    <input id="code_type" name="code_type" class="form-control" value="@(Model.code_type)"
+                           onkeyup="this.value = this.value.toUpperCase();" tabindex="1" required />
+                </div>
+                <div class="form-group">
+                    <label for="sort">排序</label>
+                    <input id="sort" name="sort" class="form-control" value="@(Model?.sort)" tabindex="3" />
+                </div>
+            </div>
+            <div class="col-md-6 col-sm-6 col-xs-6">
+                <div class="form-group">
+                    <label for="code_no">識別值</label>
+                    <input id="code_no" name="code_no" class="form-control" value="@(Model.code_no)" tabindex="2" required />
+                </div>
+            </div>
+
+            <section class="locale-label" style="width:100%;">
+                <p>名稱語系:</p>
+                <div class="col-md-12 col-sm-12 col-xs-12">
+                    <div class="form-group">
+                        <label for="name_basic">基本名稱</label>
+                        <input id="name_basic" name="name_basic" class="form-control typeahead" placeholder="請輸入名稱"
+                               value="@(Model.code_name.ContainsKey("basic") ? Model.code_name["basic"] : string.Empty)" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_en-US">英文</label>
+                        <input id="name_en-US" name="name_en-US" class="form-control" placeholder="請輸入英文名稱"
+                               value="@(Model.code_name.ContainsKey("en-US") ? Model.code_name["en-US"] : string.Empty)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_zh-TW">繁體中文</label>
+                        <input id="name_zh-TW" name="name_zh-TW" class="form-control" placeholder="請輸入繁體中文名稱"
+                               value="@(Model.code_name.ContainsKey("zh-TW") ? Model.code_name["zh-TW"] : string.Empty)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_zh-HK">繁體香港</label>
+                        <input id="name_zh-HK" name="name_zh-HK" class="form-control" placeholder="請輸入繁體香港名稱"
+                               value="@(Model.code_name.ContainsKey("zh-HK") ? Model.code_name["zh-HK"] : string.Empty)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_zh-CN">簡體中文</label>
+                        <input id="name_zh-CN" name="name_zh-CN" class="form-control" placeholder="請輸入簡體中文名稱"
+                               value="@(Model.code_name.ContainsKey("zh-CN") ? Model.code_name["zh-CN"] : string.Empty)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_ja-JP">日文</label>
+                        <input id="name_ja-JP" name="name_ja-JP" class="form-control" placeholder="請輸入日文名稱"
+                               value="@(Model.code_name.ContainsKey("ja-JP") ? Model.code_name["ja-JP"] : string.Empty)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_ko-KR">韓文</label>
+                        <input id="name_ko-KR" name="name_ko-KR" class="form-control" placeholder="請輸入韓文名稱"
+                               value="@(Model.code_name.ContainsKey("ko-KR") ? Model.code_name["ko-KR"] : string.Empty)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_th-TH">泰文</label>
+                        <input id="name_th-TH" name="name_th-TH" class="form-control" placeholder="請輸入泰文名稱"
+                               value="@(Model.code_name.ContainsKey("th-TH") ? Model.code_name["th-TH"] : string.Empty)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name_vi-VN">越南文</label>
+                        <input id="name_vi-VN" name="name_vi-VN" class="form-control" placeholder="請輸入越南文名稱"
+                               value="@(Model.code_name.ContainsKey("vi-VN") ? Model.code_name["vi-VN"] : string.Empty)" />
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</form>
+
+<script type="text/javascript">
+    $('#code_form').bootstrapValidator({
+        feedbackIcons: {
+            valid: null,
+            invalid: null,
+            validating: null
+        }
+    });
+
+    BindTypeSearch();
+</script>

@@ -44,7 +44,8 @@ namespace Trip.PasvAPI.Models.Model
         public string ticket_rule_spec_item { get; set; }
         public Dictionary<string, Dictionary<string, Dictionary<string, object>>> calendar_detail { get; set; }
         public SpecRule spec_rule { get; set; }
-        public string spec_desc { get; set; }
+        public Dictionary<string, string> spec { get; set; }
+        public string spec_desc { get; set; } // Useless!!!
     }
 
     public partial class UnitQuantityRule

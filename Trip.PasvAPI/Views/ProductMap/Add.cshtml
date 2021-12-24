@@ -1,0 +1,257 @@
+﻿@using Trip.PasvAPI.Models.Model
+@using Trip.PasvAPI.Models.Repository
+
+@inject CodeRepository codeRepos 
+@model ProductMapExModel
+@{
+    Layout = null;
+
+    var codes = codeRepos.LoadFromTypes("MAP_STATUS", "MAP_MODE"); 
+}
+<form id="map_form" class="form" role="form">
+    <input type="hidden" id="code_oid" value="@Model.map_seq" />
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-6 col-12 form-group">
+                <label for="map_mode">商品模式</label>
+                <select id="map_mode" name="map_mode" class="form-control">
+                    @foreach (var item in codes.Where(c => c.code_type == "MAP_MODE").OrderBy(c => c.sort).ToList())
+                    {
+                        <option value="@(item.code_no)">@(item.code_name.GetValue("basic"))</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-6 col-12 form-group">
+                <label for="map_status">對應狀態</label>
+                <select id="map_status" name="map_status" class="form-control">
+                    @foreach (var item in codes.Where(c => c.code_type == "MAP_STATUS").OrderBy(c => c.sort).ToList())
+                    {
+                        <option value="@(item.code_no)">@(item.code_name.GetValue("basic"))</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-4 col-12 form-group">
+                <label for="ota_prod_id">OTA 商編 *</label>
+                <input id="ota_prod_id" name="ota_prod_id" class="form-control" required />
+            </div>
+            <div class="col-md-8 col-12 form-group">
+                <label for="ota_prod_name">OTA 商品名稱</label>
+                <input id="ota_prod_name" name="ota_prod_name" class="form-control" />
+            </div>
+            <div class="col-12 form-group">
+                <label for="prod_oid">KKday 商編 *</label> 
+                <select id="prod_oid" name="prod_oid" class="form-control" required>
+                    <option value="">請選擇...</option>
+                </select>
+            </div>
+
+            <div class="col-12 form-group">
+                <label for="pkg_oid">KKday 方案 *</label>
+                <select id="pkg_oid" name="pkg_oid" class="form-control selectpicker" multiple required> 
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label for="sku_id">KKday SKU *</label>
+                <div class="row">
+                    <div class="col-md-4 col-12">
+                        <div class="form-group">
+                            <select class="form-control sel-pkgs">
+                                <option value="">請選擇...</option> 
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-8 col-12">
+                        <div class="form-group">
+                            <select id="sku_id" name="sku_id" class="form-control selectpicker" multiple> 
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-12 form-group align-self-end">
+                <label for="allow_seltime">場次可選擇 </label>
+                <input type="checkbox" name="allow_seltime" id="allow_seltime" data-size="sm" onchange="CheckAllowTimeSlot(this);">
+            </div>
+            <div class="col-12 form-group">
+                <label>場次設置</label>
+                <div id="time_slots" class="row">
+                    <div class="input-group col-md-4 mb-3 add-slot">
+                        <input class="form-control add-time" placeholder="hh:mm" />
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-primary" onclick="AddSlot();" disabled>
+                                <i class="fa fa-plus" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script type="text/javascript">
+    $('#map_form').bootstrapValidator({
+        feedbackIcons: {
+            valid: null,
+            invalid: null,
+            validating: null
+        }
+    }); 
+      
+    $('#allow_seltime').bootstrapToggle();
+
+    $('.selectpicker').selectpicker({
+        noneSelectedText: '全部' //預設顯示內容 
+    });
+
+    $('#pkg_oid').on('changed.bs.select', function (e, idx, isSelected, previousValue) {
+        var selected = $(e.currentTarget).val();
+        @*console.log(this.value, idx, isSelected, previousValue)*@ 
+        ResetSkuOptions();
+
+        _pkgs = [];
+        $('.sel-pkgs').find('option').not(':first').remove();
+        selected.forEach((pkg) => {
+            label = $("#pkg_oid option[value='" + pkg + "']").text();
+            $('.sel-pkgs').append($('<option>', { value: pkg, text: label }));
+
+            origin_pkg = current_prod.pkgs.find(k => k.pkg_oid == pkg);
+            if (origin_pkg == undefined) _pkgs.push({ pkg_oid: pkg, pkg_name: label, skus: [] }); 
+            else _pkgs.push(origin_pkg);
+            
+        })
+        current_prod.pkgs = _pkgs;
+    });
+
+    $('.sel-pkgs').on('change', function () {
+        $('#sku_id').find('option').remove();
+        $('#sku_id').selectpicker('refresh');
+
+        if ($('.sel-pkgs').val() == "")  return false;
+        
+        argv = { prod_oid: $('#prod_oid').val(), pkg_oid: $('.sel-pkgs').val() }; 
+        $.getJSON(_root_path + "ProductMap/QueryPackageSku/", argv, (result) => {
+            if (result.status) {
+                result.item.sku.forEach((sku) => {
+                    console.log(" ===> sku : " + JSON.stringify(sku))
+                    $('#sku_id').append($('<option>', { value: sku.sku_id, text: `${sku.sku_id} ${sku.sku_name}` }));
+                });
+                //還原已勾選 sku
+                var orgin_pkg = current_prod.pkgs.find(k => k.pkg_oid == $('.sel-pkgs').val());
+                if (orgin_pkg != undefined) {
+                    sku_val = orgin_pkg.skus.map((s) => s.sku_id);
+                    console.log(" ---> origin skus : ", sku_val)
+                    $('#sku_id').selectpicker('val', sku_val).selectpicker('refresh');
+                }
+                $('#sku_id').selectpicker('refresh');
+                @*setTimeout(() => {  $('#sku_id').selectpicker('refresh'); }, 500);*@
+            }
+        });
+       
+    });
+
+    $('#sku_id').on('changed.bs.select', function (e, idx, isSelected, previousValue) {
+        var skus = $(e.currentTarget).val();
+        _skus = [];
+        skus.forEach((sku) => {
+            var label = $("#sku_id option[value='" + sku + "']").text();
+            _skus.push({ sku_id: sku, sku_name: label });
+        });
+         
+        var pkg = current_prod.pkgs.find(k => k.pkg_oid == $('.sel-pkgs').val());
+        if (pkg != undefined) pkg.skus = _skus;
+    });
+
+    BindProductSearch();
+
+    ////////////////////////////
+
+    function AddSlot() {
+        time = $('.add-time').val();
+        if (time == "") { alert("場次時間不可空白!"); return; }
+        slotHtml = `<div class="input-group col-md-4 mb-3 slot">
+    <input class="form-control time" placeholder="hh:mm" value="${time}" />
+    <div class="input-group-append">
+        <button type="button" class="btn btn-light" onclick="DeleteSlot(this);">
+            <i class="fa fa-times" aria-hidden="true"></i> 
+        </button>
+    </div>
+</div>`;
+        $(slotHtml).insertBefore('#time_slots .add-slot');
+        $('.add-time').val('');
+    }
+
+    function DeleteSlot(el) {
+        $(el).closest('.slot').remove();
+    }
+     
+    function BindProductSearch() {
+        $('#prod_oid').select2({
+            theme: "bootstrap",
+            dataCache: [],
+            minimumInputLength: 2, 
+            maximumInputLength: 10,
+            dropdownAutoWidth: true,
+            placeholder: '請輸入名稱...', 
+            ajax: {
+                url: _root_path + "ProductMap/QueryProduct/",
+                type: 'get',
+                // 要送出的資料
+                data: function (params) { 
+                    return {
+                        id: params.term
+                    };
+                },
+                processResults: function (data, params) {
+                    //console.log(data) 
+                    return {
+                        results: data, 
+                        pagination: {
+                            more: false // 可以啟用無線捲軸做分頁
+                        }
+                    }
+                }
+            }
+        });
+
+        $('#prod_oid').on('select2:select', function (e) {
+            var data = e.params.data;
+            console.log(data);
+
+            $('#pkg_oid').find('option').remove(); $('#pkg_oid').selectpicker('refresh');
+            ResetSkuOptions();
+
+            current_prod = { prod_oid: data.id, prod_name: data.text, pkgs: [] };
+
+            $.getJSON(_root_path + "ProductMap/QueryPackage/" + data.id, (result) => {
+                console.log(JSON.stringify(result)); 
+                if (result.status) { 
+                    result.pkgs.forEach((pkg) => {
+                        $('#pkg_oid').append($('<option>', { value: pkg.id, text: pkg.text }));
+                    });
+                     
+                    $('#pkg_oid').selectpicker('refresh');
+                }
+
+            });
+        });
+    }
+
+    function ResetSkuOptions() {
+        $('.sel-pkgs').find('option').not(':first').remove();
+        $('#sku_id').find('option').remove(); $('#sku_id').selectpicker('refresh'); 
+    }
+
+    function CheckAllowTimeSlot(el) {
+        if ($(el).is(':checked')) {
+            $('.add-slot button').prop('disabled', false);
+        }
+        else {
+            $('.slot').remove();
+            $('.add-slot button').prop('disabled', true);
+        }
+    }
+</script>

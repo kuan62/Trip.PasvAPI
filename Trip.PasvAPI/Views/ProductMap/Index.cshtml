@@ -1,0 +1,291 @@
+﻿@using System.Globalization
+@{
+}
+@section Styles {
+    <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap-select/dist/css/bootstrap-select.css" />
+    <link rel="stylesheet" href="~/lib/select2/dist/css/select2.css" />
+    <link rel="stylesheet" href="~/lib/select2/dist/css/select2-bootstrap.css" /> 
+    <link rel="stylesheet" href="~/lib/bootstrap-table/dist/bootstrap-table.css" />
+
+    <style type="text/css">
+        
+        th { background-color: #F7F2E0; }
+        .text-nowrap { white-space: nowrap; }
+        .th-w66px .th-inner { width: 66px; }
+        .th-w180px .th-inner { width: 180px; }
+        .th-w230px .th-inner { width: 260px; } 
+        .th-w320px .th-inner {  width: 320px; }
+
+        .bootstrap-select.show-tick .dropdown-menu .selected span.check-mark {
+            position: relative;
+            top: 0;
+        }
+         
+    </style>
+}
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+    <script src="~/lib/bootstrap-select/dist/js/bootstrap-select.js"></script>
+    <script src="~/lib/select2/dist/js/select2.js"></script>
+    <script src="~/lib/bootstrap-table/dist/bootstrap-table.js"></script>
+    <script src="~/lib/bootstrap-table/dist/locale/bootstrap-table-zh-TW.js"></script>
+}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="#">首頁</a></li> 
+                    <li class="breadcrumb-item active" aria-current="page">商品對應</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <a href="@Url.Content("~/ProductMap/Add/")" class="btn btn-primary" data-action="add" data-backdrop="static"
+               data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="新增對應">
+                <i class="fa fa-plus" aria-hidden="true"></i> 新增
+            </a>
+            <button type="button" class="btn btn-danger" onclick="RemoveMapItems();">
+                <i class="fa fa-minus" aria-hidden="true"></i> 刪除
+            </button>
+        </div>
+    </div>
+    <div class="row mt-1">
+        <div class="col-12">
+            <table id="table"
+                   data-toggle="table"
+                   data-url="@Url.Content("~/ProductMap/FetchData")"
+                   data-sort-name="ota_prod_id" data-sort-order="asc"
+                   data-page-size="50"
+                   data-page-number="1"
+                   data-side-pagination="server"
+                   data-id-field="ota_prod_id"
+                   data-page-list="[10, 25, 50, 100, 200, All]"
+                   data-pagination="true">
+                <thead>
+                    <tr>
+                        <th data-field="map_seq" data-align="center" data-formatter="ColumCheckBox">
+                            <input type="checkbox" class="check-all mr-2" />序號
+                        </th>
+                        <th data-field="ota_prod_id" data-sortable="true" class="text-nowrap">OTA 商編</th>
+                        <th data-field="ota_prod_name" data-sortable="true" class="th-w320px">OTA 品名</th>
+                        <th data-field="ota_plu" class="text-nowrap">PLU</th>
+                        <th data-field="prod_name" data-sortable="true" class="th-w320px">商品名稱</th>
+                        <th data-field="pkg_name" data-sortable="true" class="th-w320px">方案名稱</th>
+                        <th data-field="sku_name" data-sortable="true" class="th-w320px">SKU</th>
+                        <th data-field="map_mode_name">商品模式</th>
+                        <th data-field="map_status">狀態</th>
+                        <th data-formatter="ColumnTimeSlot">場次</th>
+                        <th data-formatter="ColumnUser" class="text-nowrap">最後更新者</th>
+                        <th data-formatter="TableActions" class="text-nowrap"></th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="CommonModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title"></h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">關閉</button>
+                <button type="button" class="btn btn-primary confirm">確定</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript">
+    var current_prod = {};
+
+    $(function () {
+
+        $(document).on('shown.bs.modal', '.modal', function (e) {
+            var _modal = this;
+            //console.log("Modal ID --> " + this.id);
+            if (e.relatedTarget == undefined) return; // call js directly!
+
+            link = $(e.relatedTarget);
+            if (link.attr("data-title") != "" || link.attr("data-title") != undefined) {
+                $(this).find(".modal-title").html(link.attr("data-title"));
+            }
+
+            rel_url = link.attr("href") == undefined ? link.attr("data-rel") : link.attr("href");
+            action = link.attr("data-action");
+            //console.log("data-action:" + action);
+            if (action == undefined) return;
+
+            $(this).find(".modal-body").html('<img src="/images/loading.gif" style="width:32px;" />').load(rel_url, function () {
+                _cmd = "";
+                if (action == "add") _cmd = "ExpandProductMap()";
+                if (action == "edit") _cmd = "";
+                console.log("==> _cmd = " + _cmd)
+                if (_cmd != "") $(_modal).find(".modal-footer > .confirm").unbind("click").bind("click", function () { eval(_cmd); });
+            });
+        });
+
+        $(document).on('hide.bs.modal', '.modal', function (e) {
+            $(this).find(".modal-body").html('');
+        });
+
+        $('#table').on('load-success.bs.table', function (event, rowArray) {
+            BindCheckAll();
+            $('[data-toggle="popover"]').popover();
+        })
+    });
+
+    function Refresh() {
+        _filterCond = JSON.stringify({});
+        $("#table").bootstrapTable("refresh", {
+            url: _root_path + "ProductMap/FetchData?filter=" + _filterCond
+        });
+    }
+
+    function ColumCheckBox(value, row, index) {
+        // console.log("Row=" + JSON.stringify(row) + ", Value=" + value);
+        return [
+            '<input type="checkbox" class="check-item mr-2" value="' + row.map_seq + '" /> ',
+            row.map_seq
+        ].join('');
+    }
+
+    function ColumnTimeSlot(value, row, index) {
+        if (!row.allow_seltime) return "無";
+
+        items = ''; total = 0;
+        if (row.time_slots) {
+            $.each(row.time_slots, (idx, time) => {
+                items += `<div style="padding: 8px;">${time}</div>`;
+                if ((idx + 1) < row.time_slots.length) {
+                    items += `<div class="dropdown-divider"></div>`;
+                }
+                total = idx + 1;
+            });
+        }
+
+        return `<div class="dropdown item-picker" style="display:inline-block;">
+    <button type="button" class="btn btn-light dropdown-toggle" data-toggle="dropdown" data-boundary="window">
+        <span class="item-title">${total} 個</span>
+    </button>
+    <div class="dropdown-menu">
+        ${items}
+    </div>
+</div>`;
+    }
+
+    function ColumnUser(value, row, index) {
+        return [
+            '<span>' + (row.modify_user == null ? row.create_user : row.modify_user) + '</span> <br/>',
+            '<span>' + (row.modify_user == null ? row.create_date.substring(0, 10) : row.modify_date.substring(0, 10)) + '</span>'
+        ].join('');
+    }
+
+    function TableActions(value, row, index) {
+        // console.log("Row=" + JSON.stringify(row) + ", Value=" + value + ", Index=" + index);
+        return [
+            '<a href="' + _root_path + 'ProductMap/Edit/' + row.map_seq + '" class="btn btn-success" data-backdrop="static"',
+            '   data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="編輯對應"',
+            '   data-action="edit">編輯</a>'
+        ].join('');
+    }
+
+    function ExpandProductMap() {
+        console.log("calling ExpandProductMap.... ")
+        $('#map_form').data("bootstrapValidator").validate();
+        if (!$('#map_form').data("bootstrapValidator").isValid()) return false;
+
+        var req = {
+            map_seq: parseInt($("#map_seq").val()), map_mode: $('#map_mode').val(), map_status: $('#map_status').val(),
+            allow_seltime: $('#allow_seltime').is(':checked'),
+            ota_prod_id: $('#ota_prod_id').val(), ota_prod_name: $('#ota_prod_name').val(),
+            prod_oid: current_prod.prod_oid, prod_name: current_prod.prod_name,
+            pkgs: current_prod.pkgs, time_slots: $('.slot .time').map((i, e) => { return $(e).val(); }).get()
+        };
+
+        console.log(JSON.stringify(req));
+
+        $.ajax({
+            type: "POST",
+            url: _root_path + "ProductMap/ExpandProductMap",
+            contentType: "application/json; charset=utf-8",
+            data: JSON.stringify(req),
+            dataType: "json",
+            cache: false,
+            async: false,
+            success: function (result) {
+                if (result.status) {
+                    Refresh();
+                    $('#CommonModal').modal('hide');
+                }
+                else {
+                    alert('展開對應項目-作業失敗: ' + result.msg);
+                }
+            }
+        });
+    }
+
+    function BindTypeSearch() {
+        //console.log("Call BindTypeSearch...");
+
+        $('#code_type').typeahead({
+            minLength: 1,
+            items: 'all',
+            source: function (query, process) {
+                //console.log("Call AJAX for typeahead ")
+                return $.getJSON(_root_path + "Code/QueryCodeTypes/", { id: query }, function (data) {
+                    return process(data);
+                });
+            }
+        });
+    }
+
+    function BindCheckAll() {
+        $(".check-all").change(function () {
+            $(".check-item").prop('checked', $(this).prop("checked"));
+        });
+
+        $('.check-item').change(function () {
+            if (false == $(this).prop("checked")) { //if this item is unchecked
+                $(".check-all").prop('checked', false); //change "select all" checked status to false
+            }
+            //check "select all" if all checkbox items are checked
+            if ($('.check-item:checked').length == $('.check-item').length) {
+                $(".check-all").prop('checked', true);
+            }
+        });
+    }
+
+    function RemoveMapItems() {
+        targets = $('.check-item:checked').map((i, m) => parseInt($(m).val())).get();
+        //console.log(" ===> removed target maps: " + JSON.stringify(targets))
+        if (targets.length < 1) { alert('請先選擇一個以上的商品對應項目!'); return; }
+        if (!confirm('您確定要移除選擇的對應項目?')) return;
+            
+        req = { maps: targets };
+        console.log(" ===> RemoveMaps: " + JSON.stringify(req))
+        
+        $.getJSON(_root_path + "ProductMap/RemoveMaps", $.param(req, true), (result) => {
+            if (result.status) {
+                Refresh();
+            }
+            else {
+                alert('刪除對應項目-作業失敗: ' + result.msg);
+            }
+        });
+    }
+
+</script>
