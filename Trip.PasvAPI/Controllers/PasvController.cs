@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
@@ -14,12 +15,14 @@ using Trip.PasvAPI.Models.Enum;
 using Trip.PasvAPI.Models.Model;
 using Trip.PasvAPI.Models.Model.Trip;
 using Trip.PasvAPI.Models.Repository;
+using Trip.PasvAPI.Proxy;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace Trip.PasvAPI.Controllers
 {
     [Route("api/[controller]")]
+    [AllowAnonymous]
     public class PasvController : Controller
     {
         private readonly IMemoryCache _cache;
@@ -54,7 +57,8 @@ namespace Trip.PasvAPI.Controllers
             Console.WriteLine($" ===> TTdOpen API Server Type: {req["header"]["serviceName"]}");
 
             var logRepos = HttpContext.RequestServices.GetService<TripTransLogRepository>();
-            var productRepos = HttpContext.RequestServices.GetService<ProductRepository>();
+            var mapRepos = HttpContext.RequestServices.GetService<ProductMapRepository>(); // 商品映射
+            var prodRepos = HttpContext.RequestServices.GetService<ProductRepository>(); // KKday 商品
             var orderMasterRepos = HttpContext.RequestServices.GetService<OrderMasterRepository>();
             var tripOrderRepos = HttpContext.RequestServices.GetService<TripOrderRepository>();
 
@@ -72,26 +76,26 @@ namespace Trip.PasvAPI.Controllers
             // 檢查 Sign 是否正確?
             // 格式 => md5(accountId + serviceName + requestTime + body + version + signkey).toLowerCase();
             var req_header = req["header"];
-            var req_sign = Md5Helper.ToMD5($"{req_header["accountId"]}{req_header["serviceName"]}{req_header["requestTime"]}{req["body"]}{req_header["version"]}{Website.Instance.SignKey}").ToLower();
-            if (!req_header["sign"].ToString().Equals(req_sign))
-            {
-                // 回傳錯誤結果
-                resp_code = TTdResultCodeEnum.WRONG_SIGNATURE.GetHashCode().ToString("D4");
-                resp_msg = "签名错误"; 
+            //var req_sign = Md5Helper.ToMD5($"{req_header["accountId"]}{req_header["serviceName"]}{req_header["requestTime"]}{req["body"]}{req_header["version"]}{Website.Instance.SignKey}").ToLower();
+            //if (!req_header["sign"].ToString().Equals(req_sign))
+            //{
+            //    // 回傳錯誤結果
+            //    resp_code = TTdResultCodeEnum.WRONG_SIGNATURE.GetHashCode().ToString("D4");
+            //    resp_msg = "签名错误"; 
 
-                resp = new TTdResponseModel()
-                {
-                    header = new TTdResponseModel.TTdResponseHeaderModel()
-                    {
-                        resultCode = resp_code,
-                        resultMessage = resp_msg
-                    }
-                }; 
+            //    resp = new TTdResponseModel()
+            //    {
+            //        header = new TTdResponseModel.TTdResponseHeaderModel()
+            //        {
+            //            resultCode = resp_code,
+            //            resultMessage = resp_msg
+            //        }
+            //    }; 
 
-                logRepos.SetResponse(log_oid, JsonConvert.SerializeObject(resp),  null, "KKDAY");
+            //    logRepos.SetResponse(log_oid, JsonConvert.SerializeObject(resp),  null, "KKDAY");
 
-                return resp;
-            }
+            //    return resp;
+            //}
 
             // 檢查 Supplier 帳號是否正確?
             if (!req_header["accountId"].ToString().Equals(Website.Instance.AgentAccount))
@@ -127,84 +131,88 @@ namespace Trip.PasvAPI.Controllers
 
                             order.items.ForEach(i =>
                             {
-                                // var locale = "zh-TW";
-                                var dummyProd = productRepos.GetDummyProduct(i.PLU);
+                                var map_prod = mapRepos.GetProductMapByPLU(i.PLU);
                                 int invalid_count = 0;
 
-                                if (!string.IsNullOrEmpty(dummyProd?.param1.GetValue("condition")?.ToString()))
-                                {
-                                    var cond = dummyProd.param1.GetValue("condition").ToString();
-
-
-                                    if (cond.IndexOf("ageType") != -1)
-                                    {
-                                        invalid_count += (i.passengers.Where(p => string.IsNullOrEmpty(p.ageType)).Count() > 0) ? 1 : 0;
-                                    }
-
-                                    if (cond.IndexOf("cardNo") != -1)
-                                    {
-                                        invalid_count += (i.passengers.Where(p => string.IsNullOrEmpty(p.cardNo)).Count() > 0) ? 1 : 0;
-                                    }
-                                }
-
                                 // (1) 判斷产品ID异常，則回傳錯誤碼: 1001
-                                if (dummyProd == null)
+                                if (map_prod == null)
                                 {
                                     resp_code = TTdResultCodeEnum.INVALID_PLU.GetHashCode().ToString("D4");
                                     resp_msg = $" sequenceId={ order.sequenceId } : 有無效的PLU";
                                     resp_body = null;
-
                                 }
-                                // (2) 判斷庫存不足, 則回傳錯誤碼: 1003
-                                else if (i.quantity > dummyProd.qty)
-                                {
-                                    resp_code = TTdResultCodeEnum.INSUFFICIENT_INVENTORY.GetHashCode().ToString("D4");
-                                    resp_msg = $" PLU={ i.PLU } : 庫存不足";
-
-                                    // 回傳-項目清單(Items)
-                                    var _items = new List<OrderVerificationRespModel.ItemModel>();
-                                    foreach (var _item in order.items)
-                                    {
-                                        var _inventorys = new List<OrderVerificationRespModel.ItemModel.InventorysModel>();
-                                        _inventorys.Add(new OrderVerificationRespModel.ItemModel.InventorysModel()
-                                        {
-                                            quantity = 10,
-                                            useDate = _item.useStartDate
-                                        });
-
-                                        _items.Add(new OrderVerificationRespModel.ItemModel()
-                                        {
-                                            PLU = _item.PLU,
-                                            inventorys = _inventorys
-                                        });
-                                    }
-
-                                    // 回傳-主體(Body)
-                                    resp_body = new OrderVerificationRespModel()
-                                    {
-                                        items = _items,
-                                    };
-                                }
-                                // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006
-                                else if (i.passengers.Count() < 1)
-                                {
-                                    resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
-                                    resp_msg = $" PLU={ i.PLU } : 缺失出行人";
-                                    resp_body = null;
-                                }
-                                // (4) 判斷缺失证件(ageType, cardNo, etc), 則回傳錯誤碼: 1005/1006 
-                                else if (invalid_count > 0)
-                                {
-                                    resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
-                                    resp_msg = $" PLU={ i.PLU } : 缺失证件";
-                                    resp_body = null;
-                                } 
-                                // 檢驗無誤!! 加入待處理項目清單
                                 else
                                 {
-                                    order_items.Add(i);
+
+                                    //if (!string.IsNullOrEmpty(prod?.param1.GetValue("condition")?.ToString()))
+                                    //{
+                                    //    var cond = dummyProd.param1.GetValue("condition").ToString(); 
+
+                                    //    if (cond.IndexOf("ageType") != -1)
+                                    //    {
+                                    //        invalid_count += (i.passengers.Where(p => string.IsNullOrEmpty(p.ageType)).Count() > 0) ? 1 : 0;
+                                    //    }
+
+                                    //    if (cond.IndexOf("cardNo") != -1)
+                                    //    {
+                                    //        invalid_count += (i.passengers.Where(p => string.IsNullOrEmpty(p.cardNo)).Count() > 0) ? 1 : 0;
+                                    //    }
+                                    //}
+
+                                    var remaing_qty = prodRepos.GetPackageQty(token, Convert.ToInt64(map_prod.prod_oid), Convert.ToInt64(map_prod.pkg_oid),
+                                                        map_prod.sku_id, order.items[0].useStartDate);
+
+
+                                    // (2) 判斷庫存不足, 則回傳錯誤碼: 1003
+                                    if (i.quantity > remaing_qty)
+                                    {
+                                        resp_code = TTdResultCodeEnum.INSUFFICIENT_INVENTORY.GetHashCode().ToString("D4");
+                                        resp_msg = $" PLU={ i.PLU } : 庫存不足";
+
+                                        // 回傳-項目清單(Items)
+                                        var _items = new List<OrderVerificationRespModel.ItemModel>();
+                                        foreach (var _item in order.items)
+                                        {
+                                            var _inventorys = new List<OrderVerificationRespModel.ItemModel.InventorysModel>();
+                                            _inventorys.Add(new OrderVerificationRespModel.ItemModel.InventorysModel()
+                                            {
+                                                quantity = 10,
+                                                useDate = _item.useStartDate
+                                            });
+
+                                            _items.Add(new OrderVerificationRespModel.ItemModel()
+                                            {
+                                                PLU = _item.PLU,
+                                                inventorys = _inventorys
+                                            });
+                                        }
+
+                                        // 回傳-主體(Body)
+                                        resp_body = new OrderVerificationRespModel()
+                                        {
+                                            items = _items,
+                                        };
+                                    }
+                                    // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006
+                                    else if (i.passengers.Count() < 1)
+                                    {
+                                        resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
+                                        resp_msg = $" PLU={ i.PLU } : 缺失出行人";
+                                        resp_body = null;
+                                    }
+                                    // (4) 判斷缺失证件(ageType, cardNo, etc), 則回傳錯誤碼: 1005/1006 
+                                    else if (invalid_count > 0)
+                                    {
+                                        resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
+                                        resp_msg = $" PLU={ i.PLU } : 缺失证件";
+                                        resp_body = null;
+                                    }
+                                    // 檢驗無誤!! 加入待處理項目清單
+                                    else
+                                    {
+                                        order_items.Add(i);
+                                    }
                                 }
-                               
                             });
 
                             if (order_items.Count() > 0)
@@ -239,56 +247,7 @@ namespace Trip.PasvAPI.Controllers
                                 };
 
                             }
-
-                            #region KKday 商品整合區塊 ---- start
-
-                            /*
-                            // openid 格式 => "PROD_PKG_ITEM,SKU"
-                            var tokens = PLU.Split(','); // openid 格式 => "PROD_PKG_ITEM,SKU"
-                            var oid_params = tokens[0].Split('_');
-                            var prod_oid = oid_params.Length > 0 ? Convert.ToInt64(oid_params[0]) : 0;
-                            var pkg_oid = oid_params.Length > 1 ? Convert.ToInt64(oid_params[1]) : 0;
-                            var item_oid = oid_params.Length > 2 ? Convert.ToInt64(oid_params[2]) : 0;
-                            var sku_id = tokens[1];
-                            var guidToken = Guid.NewGuid().ToString("N");
-
-                            // fetch the value from the source
-                            var pkg = productRepos.GetPackage(token, prod_oid, pkg_oid, sku_id, locale);
-
-                            // 判斷套餐的位控資料
-
-
-                            // 回傳-結果代碼(Result Code)-成功
-                            resp_code = TTdResultCodeEnum.SUCCESS.GetHashCode().ToString("D4");
-                            resp_msg = "訂單驗證成功";
-
-                            // 回傳-項目清單(Items)
-                            var _items = new List<OrderVerificationRespModel.ItemModel>();
-                            foreach (var _item in order.items)
-                            {
-                                var _inventorys = new List<OrderVerificationRespModel.ItemModel.InventorysModel>();
-                                _inventorys.Add(new OrderVerificationRespModel.ItemModel.InventorysModel()
-                                {
-                                    quantity = 10,
-                                    useDate = usedDate
-                                });
-
-                                _items.Add(new OrderVerificationRespModel.ItemModel()
-                                {
-                                    PLU = _item.PLU,
-                                    inventorys = _inventorys 
-                                });
-                            }
-
-                            // 回傳-主體(Body)
-                            resp_body = new OrderVerificationRespModel()
-                            {
-                                items = _items,
-                            };
-
-                            */
-
-                            #endregion KKday 商品整合區塊 ---- end
+                           
                         }
                         catch (Exception co_ex)
                         {
@@ -316,21 +275,26 @@ namespace Trip.PasvAPI.Controllers
                                 resp_msg = $"otaOrderId='{ order.otaOrderId }' is duplicated!";
 
                                 // 回傳-項目清單(Items)
-                                var dummyProd = productRepos.GetDummyProduct(order.items.FirstOrDefault()?.PLU);
+                                var map_prod = mapRepos.GetProductMapByPLU(order.items[0].PLU);
                                 var _items = new List<CreateOrderRespModel.OrderItemModel>();
-                                foreach (var _item in order.items)
-                                { 
-                                    var remaing_qty = productRepos.GetDummyProductQty(_item.PLU);
 
-                                    _items.Add(new CreateOrderRespModel.OrderItemModel()
+                                if (map_prod != null)
+                                {
+                                    foreach (var _item in order.items)
                                     {
-                                        itemId = _item.itemId, // 重複的商品 id
-                                        inventorys = new CreateOrderRespModel.OrderItemModel.OrderItemInventoryModel()
+                                        var remaing_qty = prodRepos.GetPackageQty(token, Convert.ToInt64(map_prod.prod_oid), Convert.ToInt64(map_prod.pkg_oid),
+                                                            map_prod.sku_id, order.items[0].useStartDate);
+
+                                        _items.Add(new CreateOrderRespModel.OrderItemModel()
                                         {
-                                            quantity = remaing_qty,
-                                            useDate = _item.useStartDate
-                                        }
-                                    });
+                                            itemId = _item.itemId, // 重複的商品 id
+                                            inventorys = new CreateOrderRespModel.OrderItemModel.OrderItemInventoryModel()
+                                            {
+                                                quantity = remaing_qty,
+                                                useDate = _item.useStartDate
+                                            }
+                                        });
+                                    }
                                 }
 
                                 // 回傳-主體(Body)
@@ -338,7 +302,7 @@ namespace Trip.PasvAPI.Controllers
                                 {
                                     otaOrderId = order.otaOrderId,
                                     supplierOrderId = orderMasterRepos.GetOrderMasterMid(order.otaOrderId),
-                                    supplierConfirmType = Convert.ToInt32(dummyProd.param1.GetValue("supplierConfirmType")??1),
+                                    supplierConfirmType = 1,
                                     voucherSender = 2, // 2.供应商发送凭证
                                     items = _items,
                                 };
@@ -346,228 +310,148 @@ namespace Trip.PasvAPI.Controllers
                             else
                             {
                                 var order_items = new List<CreateOrderReqModel.OrderItemModel>();
+                                var map_prod = mapRepos.GetProductMapByPLU(order.items[0].PLU);
 
-                                order.items.ForEach(i =>
+                                // (1) 判斷产品ID异常，則回傳錯誤碼: 1001
+                                if (map_prod == null)
                                 {
-                                    var dummyProd = productRepos.GetDummyProduct(i.PLU);
-                                    int invalid_spec_count = 0;
-
-                                    if (!string.IsNullOrEmpty(dummyProd?.param1.GetValue("condition")?.ToString()))
-                                    { 
-                                        var cond = dummyProd.param1.GetValue("condition").ToString();
-                                        if (cond.IndexOf("ageType") != -1)
-                                        {
-                                            invalid_spec_count += (i.passengers.Where(p => string.IsNullOrEmpty(p.ageType)).Count() > 0) ? 1 : 0;
-                                        }
-
-                                        if (cond.IndexOf("cardNo") != -1)
-                                        {
-                                            invalid_spec_count += (i.passengers.Where(p => string.IsNullOrEmpty(p.cardNo)).Count() > 0) ? 1 : 0;
-                                        }
-                                    }
-
-                                    // (1) 判斷产品ID异常，則回傳錯誤碼: 1001
-                                    if (dummyProd == null)
-                                    {
-                                        resp_code = TTdResultCodeEnum.INVALID_PLU.GetHashCode().ToString("D4");
-                                        resp_msg = $" sequenceId={ order.sequenceId } : 有無效的PLU";
-                                        resp_body = null;
-                                        return;
-                                    }
-                                    // (2) 判斷庫存不足, 則回傳錯誤碼: 1003
-                                    else if (i.quantity > dummyProd.qty)
-                                    {
-                                        resp_code = TTdResultCodeEnum.INSUFFICIENT_INVENTORY.GetHashCode().ToString("D4");
-                                        resp_msg = $" PLU={ i.PLU } : 庫存不足";
-
-                                        // 回傳-項目清單(Items)
-                                        var _items = new List<CreateOrderRespModel.OrderItemModel>();
-                                        foreach (var _item in order_items)
-                                        {
-                                            _items.Add(new CreateOrderRespModel.OrderItemModel()
-                                            {
-                                                itemId = _item.itemId,
-                                                inventorys = new CreateOrderRespModel.OrderItemModel.OrderItemInventoryModel()
-                                                {
-                                                    quantity = 0,
-                                                    useDate = _item.useStartDate
-                                                }
-                                            });
-                                        }
-
-                                        // 回傳-主體(Body)
-                                        resp_body = new CreateOrderRespModel()
-                                        {
-                                            items = _items,
-                                        };
-                                    }
-                                    // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006
-                                    else if (i.passengers.Count() < 1)
-                                    {
-                                        resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
-                                        resp_msg = $" PLU={ i.PLU } : 缺失出行人";
-                                        resp_body = null;
-                                        return;
-                                    }
-                                    // (4) 判斷缺失证件(ageType, cardNo), 則回傳錯誤碼: 1005/1006
-                                    else if (invalid_spec_count > 0)
-                                    {
-                                        resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
-                                        resp_msg = $" PLU={ i.PLU } : 缺失证件";
-                                        resp_body = null;
-                                        return;
-
-                                    }
-                                    // 檢驗無誤!! 加入待處理項目清單
-                                    else
-                                    {
-                                        order_items.Add(i);
-                                    }
-                                });
-
-                                if (order_items.Count() > 0)
-                                {
-                                    // 正常進單，新增 Trip 訂單紀錄 
-                                    var tripOrder = new TripOrderModel()
-                                    {
-                                        sequence_id = order.sequenceId,
-                                        ota_order_id = order.otaOrderId,
-                                        confirm_type = order.confirmType,
-                                        contacts = order.contacts,
-                                        coupons = order.coupons,
-                                        items = order.items,
-                                        status = "NW",
-                                        create_user = "SYSTEM"
-                                    };
-
-                                    // 回填 trip order 識別碼
-                                    tripOrder.trip_order_oid = tripOrderRepos.Insert(tripOrder);
-
-                                    /////////
-
-                                    var result = orderMasterRepos.CreateDummyOrder(tripOrder);
-                                    if (result != null)
-                                    {
-                                        Console.WriteLine($" ===> New order_master_mid={ result.kkday_order_master_mid }");
-
-                                        var dummyProd = productRepos.GetDummyProduct(order.items.FirstOrDefault()?.PLU);
-                                         
-                                        // 回傳-結果代碼(Result Code)-成功
-                                        resp_code = TTdResultCodeEnum.SUCCESS.GetHashCode().ToString("D4");
-                                        resp_msg = "訂單建立成功";
-
-                                        // 回傳-項目清單(Items)
-                                        var _items = new List<CreateOrderRespModel.OrderItemModel>();
-                                        foreach (var _item in order_items)
-                                        {
-                                            var remaing_qty = productRepos.GetDummyProductQty(order.items.FirstOrDefault()?.PLU);
-                                            _items.Add(new CreateOrderRespModel.OrderItemModel()
-                                            {
-                                                itemId = _item.itemId,
-                                                inventorys = new CreateOrderRespModel.OrderItemModel.OrderItemInventoryModel()
-                                                {
-                                                    quantity = remaing_qty,
-                                                    useDate = _item.useStartDate
-                                                }
-                                            });
-                                        }
-
-                                        // 回傳-主體(Body)
-                                        resp_body = new CreateOrderRespModel()
-                                        {
-                                            otaOrderId = order.otaOrderId,
-                                            supplierOrderId = result.kkday_order_master_mid, // KKday 主訂單號
-                                            supplierConfirmType = Convert.ToInt32(dummyProd.param1.GetValue("supplierConfirmType") ?? 1),
-                                            voucherSender = 2, // 2.供应商发送凭证
-                                            items = _items,
-                                        };
-                                         
-                                    }
-
-                                    ///////
-
-                                    #region KKday 商品整合區塊 ---- start
-
-                                    /*
-                                    // PLU 格式 => "PROD_PKG_ITEM,SKU"
-                                    var tokens = PLU.Split(','); // openid 格式 => "PROD_PKG_ITEM,SKU"
-                                    var locale = order.items.Select(i => i.locale).FirstOrDefault();
-                                    var oid_params = tokens[0].Split('_'); 
-                                    var prod_oid = oid_params.Length > 0 ? Convert.ToInt64(oid_params[0]) : 0;
-                                    var pkg_oid = oid_params.Length > 1 ? Convert.ToInt64(oid_params[1]) : 0;
-                                    var item_oid = oid_params.Length > 2 ? Convert.ToInt64(oid_params[2]) : 0;
-                                    var sku_id = tokens[1];
-                                    var guidToken = Guid.NewGuid().ToString("N");
-
-                                    // 正嘗進單，新增 Trip 訂單紀錄 
-                                    var tripOrder = new TripOrderModel()
-                                    {
-                                        sequence_id = order.sequenceId,
-                                        ota_order_id = order.otaOrderId,
-                                        confirm_type = order.confirmType,
-                                        contacts = order.contacts,
-                                        coupons = order.coupons,
-                                        items = order.items,
-                                        status = "NW",
-                                        create_user = "SYSTEM"
-                                    };
-
-                                    var trip_order_oid = tripOrderRepos.Insert(tripOrder);
-
-                                    #region 建立 KKday 訂單 --- start
-
-                                    // 判斷幣別是否相符
-                                    var curr_unmatch = order.items.Where(i => i.priceCurrency != Website.Instance.AgentCurrency).Select(i => i.priceCurrency).Distinct();
-                                    if (curr_unmatch.Count() > 0) throw new InvalidOperationException($"currency = '{ string.Join(',', curr_unmatch) }' unmatched");
-
-                                    //  取得套餐資料
-                                    var prod = productRepos.GetProduct(token, prod_oid, locale);
-
-                                    //  取得套餐資料
-                                    var pkg = productRepos.GetPackage(token, prod_oid, pkg_oid, sku_id, locale);
-
-                                    // 判斷套餐的庫存資料
-
-                                    // 成立 KKday 訂單
-                                    var result = orderMasterRepos.CreateOrder(trip_order_oid, PLU, locale, prod, pkg); 
-                                    if (result.model != null)
-                                    {
-                                        // 回傳-結果代碼(Result Code)-成功
-                                        resp_code = TTdResultCodeEnum.SUCCESS.GetHashCode().ToString("D4");
-                                        resp_msg = "訂單建立成功";
-
-                                        // 回傳-項目清單(Items)
-                                        var _items = new List<CreateOrderRespModel.OrderItemModel>();
-                                        foreach (var _item in order.items)
-                                        {
-                                            _items.Add(new CreateOrderRespModel.OrderItemModel()
-                                            {
-                                                itemId = _item.itemId,
-                                                inventorys = new CreateOrderRespModel.OrderItemModel.OrderItemInventoryModel()
-                                                {
-                                                    quantity = result.qty,
-                                                    useDate = usedDate
-                                                }
-                                            });
-                                        }
-
-                                        // 回傳-主體(Body)
-                                        resp_body = new CreateOrderRespModel()
-                                        {
-                                            otaOrderId = order.otaOrderId,
-                                            supplierOrderId = result.model.kkday_order_master_mid, // KKday 主訂單號
-                                            supplierConfirmType = Convert.ToInt32(dummyProd.param1.GetValue("supplierConfirmType") ?? 1),
-                                            voucherSender = 2, // 2.供应商发送凭证
-                                            items = _items,
-                                        };
-
-                                        #endregion 建立 KKday 訂單 --- end
-                                    }
-                                    */
-                                    #endregion KKday 商品整合區塊 ---- end
-
+                                    resp_code = TTdResultCodeEnum.INVALID_PLU.GetHashCode().ToString("D4");
+                                    resp_msg = $" sequenceId={ order.sequenceId } : 有無效的PLU";
+                                    resp_body = null;
                                 }
+                                else
+                                {
+                                    var remaing_qty = (map_prod == null) ? 0 : prodRepos.GetPackageQty(token, Convert.ToInt64(map_prod.prod_oid), Convert.ToInt64(map_prod.pkg_oid),
+                                                        map_prod.sku_id, order.items[0].useStartDate);
 
+                                    order.items.ForEach(i =>
+                                    {
+                                        int invalid_spec_count = 0;
+                                        // (2) 判斷庫存不足, 則回傳錯誤碼: 1003
+                                        if (i.quantity > remaing_qty)
+                                        {
+                                            resp_code = TTdResultCodeEnum.INSUFFICIENT_INVENTORY.GetHashCode().ToString("D4");
+                                            resp_msg = $" PLU={ i.PLU } : 庫存不足";
+
+                                            // 回傳-項目清單(Items)
+                                            var _items = new List<CreateOrderRespModel.OrderItemModel>();
+                                            foreach (var _item in order_items)
+                                            {
+                                                _items.Add(new CreateOrderRespModel.OrderItemModel()
+                                                {
+                                                    itemId = _item.itemId,
+                                                    inventorys = new CreateOrderRespModel.OrderItemModel.OrderItemInventoryModel()
+                                                    {
+                                                        quantity = 0,
+                                                        useDate = _item.useStartDate
+                                                    }
+                                                });
+                                            }
+
+                                            // 回傳-主體(Body)
+                                            resp_body = new CreateOrderRespModel()
+                                            {
+                                                items = _items,
+                                            };
+                                        }
+                                        // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006
+                                        else if (i.passengers.Count() < 1)
+                                        {
+                                            resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
+                                            resp_msg = $" PLU={ i.PLU } : 缺失出行人";
+                                            resp_body = null;
+                                            return;
+                                        }
+                                        // (4) 判斷缺失证件(ageType, cardNo), 則回傳錯誤碼: 1005/1006
+                                        else if (invalid_spec_count > 0)
+                                        {
+                                            resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
+                                            resp_msg = $" PLU={ i.PLU } : 缺失证件";
+                                            resp_body = null;
+                                            return;
+
+                                        }
+                                        // 檢驗無誤!! 加入待處理項目清單
+                                        else
+                                        {
+                                            order_items.Add(i);
+                                        }
+                                    });
+
+                                    if (order_items.Count() > 0)
+                                    {
+                                        // 正常進單，新增 Trip 訂單紀錄 
+                                        var tripOrder = new TripOrderModel()
+                                        {
+                                            sequence_id = order.sequenceId,
+                                            ota_order_id = order.otaOrderId,
+                                            confirm_type = order.confirmType,
+                                            contacts = order.contacts,
+                                            coupons = order.coupons,
+                                            items = order.items,
+                                            status = "NW",
+                                            create_user = "SYSTEM"
+                                        };
+
+                                        // 回填 trip order 識別碼
+                                        tripOrder.trip_order_oid = tripOrderRepos.Insert(tripOrder);
+
+                                        /////////
+
+                                        var bookingRepos = HttpContext.RequestServices.GetService<OrderBookingRepository>();
+                                        var result = bookingRepos.crtOrder(order);
+
+                                        if (result != null)
+                                        {
+                                            Console.WriteLine($" ===> New order_master_mid={ result.order_master_mid }");
+
+                                            // 訂購成功
+                                            if (result.resp_code.Equals("00") || result.resp_code.Equals("0000"))
+                                            {
+                                                // 再查一次剩餘位控
+                                                remaing_qty = prodRepos.GetPackageQty(token, Convert.ToInt64(map_prod.prod_oid), Convert.ToInt64(map_prod.pkg_oid),
+                                                                map_prod.sku_id, order.items[0].useStartDate);
+
+                                                // 回傳-結果代碼(Result Code)-成功
+                                                resp_code = TTdResultCodeEnum.SUCCESS.GetHashCode().ToString("D4");
+                                                resp_msg = "訂單建立成功";
+
+                                                // 回傳-項目清單(Items)
+                                                var _items = new List<CreateOrderRespModel.OrderItemModel>();
+                                                foreach (var _item in order_items)
+                                                {
+                                                    _items.Add(new CreateOrderRespModel.OrderItemModel()
+                                                    {
+                                                        itemId = _item.itemId,
+                                                        inventorys = new CreateOrderRespModel.OrderItemModel.OrderItemInventoryModel()
+                                                        {
+                                                            quantity = remaing_qty,
+                                                            useDate = _item.useStartDate
+                                                        }
+                                                    });
+                                                }
+
+                                                // 回傳-主體(Body)
+                                                resp_body = new CreateOrderRespModel()
+                                                {
+                                                    otaOrderId = order.otaOrderId,
+                                                    supplierOrderId = result.order_master_mid, // KKday 主訂單號
+                                                    supplierConfirmType = 1,
+                                                    voucherSender = 2, // 2.供应商发送凭证
+                                                    items = _items,
+                                                };
+                                            }
+                                            // 訂購失敗
+                                            else
+                                            {
+                                                resp_code = result.resp_code;
+                                                resp_msg = result.resp_msg;
+                                                resp_body = null;
+                                            } 
+                                        }
+
+                                    }
+                                }
                             }
                         }
                         catch (Exception co_ex)
@@ -596,10 +480,14 @@ namespace Trip.PasvAPI.Controllers
                     {
                         var order = JObject.Parse(body).ToObject<CancelOrderReqModel>();
 
+                        var orderProxy = HttpContext.RequestServices.GetService<OrderProxy>();
                         var tripOrder = tripOrderRepos.GetOrder(order.otaOrderId);
-                        var orderMaster = orderMasterRepos.GetOrder(order.supplierOrderId);
-                        var dummyProd = productRepos.GetDummyProduct(order.items.FirstOrDefault()?.PLU);
+                        var master = orderMasterRepos.GetOrder(order_master_mid: order.supplierOrderId);
+                        var map_prod = mapRepos.GetProductMapByPLU(order.items.FirstOrDefault()?.PLU);
 
+                        var json_result = orderProxy.GetOrderDetail(master.order_mid, Website.Instance.B2dApiAuthorToken);
+                        var kkday_order = JsonConvert.DeserializeObject<OrderDetailModel>(json_result);
+                          
                         // (1) 订单号异常 : 2001
                         if (tripOrder == null)
                         {
@@ -608,16 +496,16 @@ namespace Trip.PasvAPI.Controllers
 
                             resp_body = null;
                         }
-                        // (1) 订单号异常: 2001
-                        else if (orderMaster == null)
+                        else if (master == null)
                         {
                             resp_code = TTdResultCodeEnum.CX_ORDER_NOT_FOUND.GetHashCode().ToString("D4");
                             resp_msg = $"supplierOrderId={ order.supplierOrderId } : 找不到";
 
                             resp_body = null;
                         }
+
                         // (2) 取消份数异常: 2004
-                        else if (tripOrder.items.Sum(i=>i.quantity) != order.items.Sum(i => i.quantity))
+                        if (tripOrder.items.Sum(i=>i.quantity) != order.items.Sum(i => i.quantity))
                         {
                             resp_code = TTdResultCodeEnum.CX_QTY_INCORRECT.GetHashCode().ToString("D4");
                             resp_msg = $"otaOrderId={ order.otaOrderId } : 取消份数异常";
@@ -625,7 +513,7 @@ namespace Trip.PasvAPI.Controllers
                             resp_body = null;
                         }
                         // (3) 重复取消: 0000
-                        else if (orderMaster.status == "CX")
+                        else if (master.status == "CX")
                         {
                             resp_code = TTdResultCodeEnum.SUCCESS.GetHashCode().ToString("D4");
                             resp_msg = $"otaOrderId={ order.otaOrderId } : 重复取消";
@@ -643,12 +531,12 @@ namespace Trip.PasvAPI.Controllers
                             // 回傳-主體(Body)
                             resp_body = new CancelOrderRespModel()
                             {
-                                supplierConfirmType = Convert.ToInt32(dummyProd.param1.GetValue("supplierConfirmType") ?? 1),
+                                supplierConfirmType = 1,
                                 items = _items,
                             };
                         }
                         // (4) 该订单已经使用: 2002
-                        else if (orderMaster != null && orderMaster.status == "GO_OK")
+                        else if (kkday_order != null && kkday_order.order_status == "GO_OK")
                         {
                             resp_code = TTdResultCodeEnum.CX_ORDER_USED.GetHashCode().ToString("D4");
                             resp_msg = $"supplierOrderId={ order.supplierOrderId } : 该订单已经使用";
@@ -657,7 +545,11 @@ namespace Trip.PasvAPI.Controllers
                         }
                         // 檢查無誤!
                         else
-                        { 
+                        {
+                            // 呼叫 B2D API 進行訂單取消, "MC001" (Tour changed or cancel)
+                            var b2d_result = orderProxy.CancelApply(master.order_mid,"MC001", Website.Instance.B2dApiAuthorToken);
+
+                            // 更改本地訂單記錄為 CX_ING
                             var result = orderMasterRepos.CancelApply(order.supplierOrderId, order.sequenceId);
                             if (result)
                             {
@@ -695,9 +587,13 @@ namespace Trip.PasvAPI.Controllers
                     {
                         var order = JObject.Parse(body).ToObject<QueryOrderReqModel>();
 
+                        var orderProxy = HttpContext.RequestServices.GetService<OrderProxy>();
                         var tripOrder = tripOrderRepos.GetOrder(order.otaOrderId);
-                        var masters = orderMasterRepos.QueryOrder(order.supplierOrderId);
+                        var master = orderMasterRepos.GetOrder(order_master_mid: order.supplierOrderId);
 
+                        var json_result = orderProxy.GetOrderDetail(master.order_mid, Website.Instance.B2dApiAuthorToken);
+                        var kkday_order = JsonConvert.DeserializeObject<OrderDetailModel>(json_result);
+                         
                         // (1) 订单号异常: 4001
                         if (tripOrder == null)
                         {
@@ -706,8 +602,15 @@ namespace Trip.PasvAPI.Controllers
 
                             resp_body = null;
                         }
+                        else if (kkday_order == null || kkday_order.result != "00")
+                        {
+                            resp_code = TTdResultCodeEnum.QUERY_ORDER_NOT_FOUND.GetHashCode().ToString("D4");
+                            resp_msg = $"KKday.order_master_mid={ order.supplierOrderId } : 找不到";
+
+                            resp_body = null;
+                        }
                         // (1) 订单号异常: 4001
-                        else if (masters == null)
+                        else if (master == null)
                         {
                             resp_code = TTdResultCodeEnum.QUERY_ORDER_NOT_FOUND.GetHashCode().ToString("D4");
                             resp_msg = $"supplierOrderId={ order.supplierOrderId } : 找不到";
@@ -721,26 +624,25 @@ namespace Trip.PasvAPI.Controllers
                             resp_code = TTdResultCodeEnum.SUCCESS.GetHashCode().ToString("D4");
                             resp_msg = "訂單查詢成功";
 
-                            // 回傳-項目清單(Items)
-                            var masterOrder = masters.FirstOrDefault();
+                            // 回傳-項目清單(Items) 
                             var _items = new List<QueryOrderRespModel.ItemNodeModel>();
-                            var _orderStatus = TripOrderStatusMapping.Convert(masterOrder.status);
+                            var _orderStatus = TripOrderStatusMapping.Convert(kkday_order.order_status);
                             _items.Add(new QueryOrderRespModel.ItemNodeModel()
                             {
-                                itemId = masterOrder.trip_item_id,
+                                itemId = tripOrder.items[0].itemId,
                                 orderStatus = _orderStatus,
-                                useStartDate = masterOrder.use_start_date,
-                                useEndDate = masterOrder.use_end_date,
-                                quantity = 1,
-                                useQuantity = masterOrder.status.Equals("GO_OK")  ? masterOrder.use_quantity : 0,
-                                cancelQuantity = _orderStatus == (int)TTdOrderStatusEnum.ALL_CANCELED ? 1 : 0,
+                                useStartDate = kkday_order.s_date,
+                                useEndDate = kkday_order.e_date,
+                                quantity = kkday_order.qty_total,
+                                useQuantity = kkday_order.order_status.StartsWith("GO") ? kkday_order.qty_total: 0,
+                                cancelQuantity = kkday_order.order_status.Equals("CX") ? kkday_order.qty_total : 0,
                             });
 
                             // 回傳-主體(Body)
                             resp_body = new QueryOrderRespModel()
                             {
-                                otaOrderId = masterOrder.ota_order_id,
-                                supplierOrderId = masterOrder.kkday_order_master_mid,
+                                otaOrderId = tripOrder.ota_order_id,
+                                supplierOrderId = master.order_master_mid,
                                 items = _items
                             };
                         }
@@ -797,8 +699,8 @@ namespace Trip.PasvAPI.Controllers
                 var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
 
                 // 取出訂單
-                var kkdayOrder = orderMasterRepos.GetOrder(kkday_order_master_mid: id);
-                var tripOrder = tripOrderRepos.GetOrder(kkdayOrder.trip_order_oid);
+                var master = orderMasterRepos.GetOrder(order_master_mid: id);
+                var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
 
                 // 準備請求參數
                 var _header = new TTdReqHeaderModel()
@@ -832,7 +734,7 @@ namespace Trip.PasvAPI.Controllers
                 {
                     sequenceId = tripOrder.sequence_id,
                     otaOrderId = tripOrder.ota_order_id,
-                    supplierOrderId = kkdayOrder.kkday_order_master_mid,
+                    supplierOrderId = master.order_master_mid,
                     confirmResultCode = "0000",
                     confirmResultMessage = "确认信息",
                     voucherSender = 2,// 1. Ctrip sends voucher 2. Suppliers send the voucher
@@ -891,8 +793,8 @@ namespace Trip.PasvAPI.Controllers
                 var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
 
                 // 取出訂單
-                var kkdayOrder = orderMasterRepos.GetOrder(kkday_order_master_mid: id);
-                var tripOrder = tripOrderRepos.GetOrder(kkdayOrder.trip_order_oid);
+                var master = orderMasterRepos.GetOrder(order_master_mid: id);
+                var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
 
                 // 準備請求參數
                 var _header = new TTdReqHeaderModel()
@@ -914,9 +816,9 @@ namespace Trip.PasvAPI.Controllers
 
                 var _body = new CancelOrderConfirmReqModel()
                 {
-                    sequenceId = kkdayOrder.trip_sequence_id,
+                    sequenceId = master.ota_sequence_id,
                     otaOrderId = tripOrder.ota_order_id,
-                    supplierOrderId = kkdayOrder.kkday_order_master_mid,
+                    supplierOrderId = master.order_master_mid,
                     confirmResultCode = "0000",
                     confirmResultMessage = "确认信息", 
                     items = _items
@@ -979,8 +881,8 @@ namespace Trip.PasvAPI.Controllers
                 var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
 
                 // 取出訂單
-                var kkdayOrder = orderMasterRepos.GetOrder(kkday_order_master_mid: id);
-                var tripOrder = tripOrderRepos.GetOrder(kkdayOrder.trip_order_oid);
+                var master = orderMasterRepos.GetOrder(order_master_mid: id);
+                var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
                  
                 // 準備請求參數
                 var _header = new TTdReqHeaderModel()
@@ -1006,7 +908,7 @@ namespace Trip.PasvAPI.Controllers
                 {
                     sequenceId = tripOrder.sequence_id,
                     otaOrderId = tripOrder.ota_order_id,
-                    supplierOrderId = kkdayOrder.kkday_order_master_mid,
+                    supplierOrderId = master.order_master_mid,
                     items = _items
                 };
 
@@ -1062,8 +964,8 @@ namespace Trip.PasvAPI.Controllers
                 var productRepos = HttpContext.RequestServices.GetService<ProductRepository>(); 
 
                 // 取出訂單
-                var kkdayOrder = orderMasterRepos.GetOrder(kkday_order_master_mid: id);
-                var tripOrder = tripOrderRepos.GetOrder(kkdayOrder.trip_order_oid); 
+                var master = orderMasterRepos.GetOrder(order_master_mid: id);
+                var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id); 
                 var dummyProd = productRepos.GetDummyProduct(tripOrder.items.FirstOrDefault()?.PLU);
 
                 // 準備請求參數
@@ -1095,7 +997,7 @@ namespace Trip.PasvAPI.Controllers
                 {
                     sequenceId = tripOrder.sequence_id,
                     otaOrderId = tripOrder.ota_order_id,
-                    supplierOrderId = kkdayOrder.kkday_order_master_mid,
+                    supplierOrderId = master.order_master_mid,
                     items = _items
 
 

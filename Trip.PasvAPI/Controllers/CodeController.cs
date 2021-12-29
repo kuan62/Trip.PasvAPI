@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Trip.PasvAPI.Models;
 using Trip.PasvAPI.Models.Repository;
@@ -12,7 +13,8 @@ using Trip.PasvAPI.Models.Repository;
 
 namespace Trip.PasvAPI.Controllers
 {
-       public class CodeController : Controller
+    [Authorize(AuthenticationSchemes = "Broker.Staff", Policy = "Staff.Only")]
+    public class CodeController : Controller
     {
         const int PAGE_SIZE = 50;
 

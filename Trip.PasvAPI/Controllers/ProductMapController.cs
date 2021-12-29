@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc; 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Trip.PasvAPI.Models.Model;
 using Trip.PasvAPI.Models.Repository;
@@ -12,6 +13,7 @@ using Trip.PasvAPI.Models.Repository;
 
 namespace Trip.PasvAPI.Controllers
 {
+    [Authorize(AuthenticationSchemes = "Broker.Staff", Policy = "Staff.Only")]
     public class ProductMapController : Controller
     {
         // GET: /<controller>/
@@ -19,7 +21,7 @@ namespace Trip.PasvAPI.Controllers
         {
             return View();
         }
-
+         
         public IActionResult FetchData(string filter, string sort, string order, int offset, int limit)
         {
             Dictionary<string, object> jsonData = new Dictionary<string, object>();
@@ -49,7 +51,7 @@ namespace Trip.PasvAPI.Controllers
 
         public IActionResult Add()
         {
-            var prodMap = new ProductMapExModel() { time_slots = new List<string>() };
+            var prodMap = new ProductMapExModel();
 
             return View(prodMap);
         }
@@ -61,7 +63,7 @@ namespace Trip.PasvAPI.Controllers
             try
             {
                 var mapRepos = HttpContext.RequestServices.GetService<ProductMapRepository>();
-                req.create_user = "SYSTEM"; // User.FindFirst("Account").Value;
+                req.create_user = User.FindFirst("Account").Value;
                 mapRepos.Insert(req);
 
                 jsonData.Add("status", true);
@@ -92,8 +94,8 @@ namespace Trip.PasvAPI.Controllers
             try
             {
                 var mapRepos = HttpContext.RequestServices.GetService<ProductMapRepository>();
-                req.create_user = "SYSTEM"; // User.FindFirst("Account").Value;
-                mapRepos.Insert(req);
+                req.modify_user = User.FindFirst("Account").Value;
+                mapRepos.Update(req);
 
                 jsonData.Add("status", true);
             }
@@ -170,7 +172,7 @@ namespace Trip.PasvAPI.Controllers
             return Json(jsonData);
         }
 
-         public IActionResult QueryPackageSku(Int64 prod_oid, Int64 pkg_oid)
+        public IActionResult QueryPackageSku(Int64 prod_oid, Int64 pkg_oid)
         {
             var jsonData = new Dictionary<string, object>();
 
@@ -201,7 +203,7 @@ namespace Trip.PasvAPI.Controllers
             try
             {
                 var mapRepos = HttpContext.RequestServices.GetService<ProductMapRepository>();
-                req.create_user = "SYSTEM";
+                req.create_user = User.FindFirst("Account").Value;
 
                 mapRepos.Expand(req);
 

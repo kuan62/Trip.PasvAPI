@@ -27,7 +27,7 @@ namespace Trip.PasvAPI.AppCode
         public string SignKey { get; private set; }
         public string AgentCurrency { get; private set; }
         public string AesCryptoKey { get; private set; }
-
+        public string PrincipleVersion { get { return "1.0.0.0"; } }
         // 主機站台識別
         public string StationID { get { return Dns.GetHostName(); } }
      

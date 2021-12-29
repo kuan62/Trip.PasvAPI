@@ -30,6 +30,7 @@ namespace Trip.PasvAPI.Models.Model
         public BookingDataMobileDeviceModel mobile_device { get; set; }
         public string event_backup_data { get; set; } // (ex: 1/20191124/1300, 2/20191125/1400)
         public BookingDataPaymentModel pay { get; set; }
+        public double? ota_pricee { get; set; }
 
         //額外補充
         public string member_oid { get; set; }
@@ -188,6 +189,20 @@ namespace Trip.PasvAPI.Models.Model
     {
         public string stripeSourceId { get; set; }
     }
+     
+    public partial class ResponeObj
+    {
+        public string resp_code { get; set; }
+        public string resp_msg { get; set; }
+        public string order_no { get; set; }
+        public string order_oid { get; set; }
+        public string order_master_mid { get; set; }
+    }
 
+    public class inputTestObjModel
+    {
+        public Int64 prod_oid { get; set; }
+        public Int64 pkg_oid { get; set; }
+    }
 
 }

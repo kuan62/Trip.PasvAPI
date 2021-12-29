@@ -30,6 +30,10 @@ select {
     appearance: none;
 }
 
+.has-error .help-block {
+    color: red;
+}
+
 /* Sticky footer styles
 -------------------------------------------------- */
     html {

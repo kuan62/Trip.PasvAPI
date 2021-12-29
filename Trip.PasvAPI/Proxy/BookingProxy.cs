@@ -20,8 +20,11 @@ namespace Trip.PasvAPI.Proxy
         }
 
         //AR 付款
-        public string Booking(BookingDataModel req,string authorToken)
+        public ResponeObj Booking(string guid, BookingDataModel req,string authorToken)
         {
+            ResponeObj res = new ResponeObj();
+            res.resp_code = "0000"; 
+
             try
             {
                 if (!Convert.ToBoolean(_config["AllowBooking"]??"False")) throw new InvalidOperationException("Booking Denied");
@@ -67,11 +70,29 @@ namespace Trip.PasvAPI.Proxy
                         }
                     }
                 }
+                 
+                System.Console.WriteLine($"Booking Result ===> {jsonResult}");
 
-                return jsonResult;
+                JObject jres = JObject.Parse(jsonResult);
+
+                if (jres["result"]?.ToString() == "00")
+                {
+                    res.order_no = jres["order_no"].ToString();
+                    res.order_oid = jres["order_oid"].ToString();
+                    res.order_master_mid = jres["order_master_mid"].ToString();
+                }
+                else
+                {
+                    res.resp_code = "1103";
+                    res.resp_msg = "成立訂單失敗";
+                    Website.Instance.logger.Fatal($"Booking 成立訂單失敗! guid={guid}, result:{jsonResult}");
+                }
+
+                return res;
             }
             catch (Exception ex)
             {
+                Website.Instance.logger.Fatal($"Booking 帶入參數異常! guid={guid}, ex:{ex?.Message?.ToString()},{ex?.StackTrace?.ToString()}");
                 throw ex;
             }
         }

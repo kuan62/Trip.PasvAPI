@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Configuration;
@@ -74,10 +77,70 @@ namespace Trip.PasvAPI
             services.AddSingleton<ProductMapRepository>();
             services.AddSingleton<StaffRepository>();
             services.AddSingleton<CodeRepository>();
+            services.AddSingleton<OrderBookingRepository>();
 
             #endregion Dependent Injection
 
-            ///
+            /////////
+
+            #region Cookie 驗證 --- start
+
+            // 新增 Cookie 驗證服務
+            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie("Broker.Staff", options =>
+                {
+                    options.Cookie.Name = ".Broker.Staff.SharedCookie";
+                    options.LoginPath = "/Login/";
+                    options.SlidingExpiration = true;
+                    // options.Cookie.Domain = "kkday.com";
+
+                    options.Events.OnValidatePrincipal = (context) =>
+                    {
+                        int failCount = 0;
+                        var identity = (ClaimsIdentity)context.Principal.Identity;
+                        var versionKey = identity.FindFirst("Ver");
+                        if (versionKey == null)
+                        {
+                            failCount++;
+                        }
+                        else
+                        {
+                            var serverVersion = new Version(Website.Instance.PrincipleVersion);
+                            var localeVersion = new Version(versionKey.Value);
+                            // Principal Version => 0:同版本, 1:不同版本
+                            if (serverVersion.CompareTo(localeVersion) == 1)
+                            {
+                                failCount++;
+                            }
+                        }
+                          
+                        if (failCount > 0)
+                        {
+                            context.RejectPrincipal();
+                            context.Response.Redirect("/Login/SignOutAsync");
+                        }
+
+                        // 驗證cookie內IdentityType是否存在
+                        if (identity.FindFirst("IdentityType") == null)
+                        {
+                            // 不存在則否認此cookie
+                            context.RejectPrincipal();
+                        }
+
+                        return Task.CompletedTask;
+                    };
+
+                });
+
+            // 指定Cookie授權政策區分不同身分者
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("Staff.Only", policy => policy.RequireClaim("IdentityType", "USER"));
+            });
+
+            #endregion Cookie 驗證 --- end
+
+            /////////
 
             services.AddControllers().AddNewtonsoftJson();
             services.AddControllersWithViews().AddNewtonsoftJson();
@@ -99,6 +162,16 @@ namespace Trip.PasvAPI
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
+
+            // 抓取遠端 Client IP
+            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                ForwardedHeaders.XForwardedProto
+            });
+
+            // 允許全區跨域存取 Enable Global CORS  
+            app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
             // 多語系初始設定
             var locOptions = app.ApplicationServices.GetService<IOptions<RequestLocalizationOptions>>();

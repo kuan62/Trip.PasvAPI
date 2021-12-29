@@ -69,6 +69,10 @@ namespace Trip.PasvAPI.Models.Repository
 
         #endregion Dummy 沙箱商品 --- end
 
+        ////////////////
+
+        #region 查詢 KKday 商品
+
         public List<ProductPickerModel> GetProductList(string key)
         {
             try
@@ -112,7 +116,7 @@ namespace Trip.PasvAPI.Models.Repository
             }
         }
 
-         public List<ProductPickerModel.PackageModel.ItemModel> GetPackgeSkuList(Int64 prod_oid, Int64 pkg_oid)
+        public List<ProductPickerModel.PackageModel.ItemModel> GetPackgeSkuList(Int64 prod_oid, Int64 pkg_oid)
         {
             try
             {
@@ -146,11 +150,6 @@ namespace Trip.PasvAPI.Models.Repository
                 throw ex;
             }
         }
-
-        ////////////////
-
-        #region 查詢 KKday 商品
-
 
         public ProductRespModel GetProduct(string token, Int64 prod_oid, string locale = null)
         {
@@ -199,7 +198,7 @@ namespace Trip.PasvAPI.Models.Repository
 
         ////////////////
 
-        #region 查詢 KKday 商品&套餐+旅規
+        #region 查詢 套餐+旅規
 
         public PackageRespModel GetPackage(string token, Int64 prod_oid, Int64 pkg_oid, string locale = null)
         { 
@@ -245,7 +244,39 @@ namespace Trip.PasvAPI.Models.Repository
             return pkg;
         }
 
-        #endregion 查詢 KKday 商品&套餐+旅規
+        public int GetPackageQty(string token, Int64 prod_oid, Int64 pkg_oid, string sku_id, string start_date)
+        {
+            var pkg = GetPackage(token, prod_oid, pkg_oid);
+            var item = pkg.item[0];
+            var qty = 0;
+
+            if (item.inventory_set != 0)
+            {
+                if (item?.position?.result == "00" && item.inventory_set == 1 && item.inventory_type == 0)
+                {
+                    qty = (item.position.item_remain_qty ?? 0);
+                }
+                else if (item?.position?.result == "00" && item.inventory_set == 1 && item.inventory_type == 1)
+                {
+                    var item_qty = item.position.itemCal_qty.Where(c => c.date == start_date).Select(c => c.remain_qty.FirstOrDefault().Value).FirstOrDefault();
+                    qty = item_qty != null ? Convert.ToInt32(item_qty) : 0; // Key=場次?
+                }
+                else if (item?.position?.result == "00" && item.inventory_set == 2 && item.inventory_type == 0)
+                {
+                    var sku_qty = item.position.skuCal_qty.Where(s => s.sku_id == sku_id).SelectMany(s =>
+                                    s.sku_cal.Where(c => c.date == start_date).Select(q => q.remain_qty.FirstOrDefault().Value)).FirstOrDefault();
+                    qty = sku_qty.HasValue ? sku_qty.Value : 0;
+                }
+            }
+            else // inventory_set=0, 不限量
+            {
+                qty = 20; // 數量一律為(上限) 20 !!
+            }
+
+            return qty;
+        }
+
+        #endregion 查詢 套餐+旅規
 
         /////////////////
     }

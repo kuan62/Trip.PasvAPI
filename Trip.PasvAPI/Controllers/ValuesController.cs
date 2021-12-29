@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -16,6 +17,7 @@ using Trip.PasvAPI.Proxy;
 namespace Trip.PasvAPI.Controllers
 {
     [Route("api/[controller]")]
+    [AllowAnonymous]
     public class ValuesController : Controller
     {
         // GET: api/values
@@ -24,12 +26,12 @@ namespace Trip.PasvAPI.Controllers
         {
             return new string[] { "value1", "value2" };
         }
-         
+
         [HttpGet("product/{prod_oid}")]
         public ProductRespModel GetProduct(Int64 prod_oid)
         {
             var prodProxy = HttpContext.RequestServices.GetService<ProductProxy>();
-             
+
             var result = prodProxy.GetProduct(new ProductReqModel()
             {
                 locale = "zh-tw",
@@ -61,14 +63,15 @@ namespace Trip.PasvAPI.Controllers
         [HttpGet("package/{prod_oid}/{pkg_oid}")]
         public PackageRespModel GetPackage(Int64 prod_oid, Int64 pkg_oid)
         {
-            var req = new QueryPackageModel() {
-                 prod_no = prod_oid.ToString(),
-                 pkg_no = pkg_oid.ToString(),
-                 currency = "TWD",
-                 locale = "zh-tw",
-                 state = "tw",  // 設為台灣地區為主
+            var req = new QueryPackageModel()
+            {
+                prod_no = prod_oid.ToString(),
+                pkg_no = pkg_oid.ToString(),
+                currency = "TWD",
+                locale = "zh-tw",
+                state = "tw",  // 設為台灣地區為主
             };
-              
+
             var prodProxy = HttpContext.RequestServices.GetService<ProductProxy>();
             var result = prodProxy.GetPackage(req, Website.Instance.B2dApiAuthorToken);
             Console.WriteLine($"Package Result => {result}");

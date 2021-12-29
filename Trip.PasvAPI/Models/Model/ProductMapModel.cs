@@ -19,7 +19,7 @@ namespace Trip.PasvAPI.Models.Model
 		public string item_oid { get; set; }
 		public string sku_id { get; set; }
 		public string sku_name { get; set; }
-		public List<string> time_slots { get; set; }
+		public string time_slot { get; set; }
 		public bool enable_timeslot { get; set; }
 		public string create_user { get; set; }
 		public DateTime? create_date { get; set; }
@@ -29,9 +29,7 @@ namespace Trip.PasvAPI.Models.Model
 
 	public class ProductMapExModel : ProductMapModel
 	{
-		public string map_prod_mode_name { get; set; }
-		public string map_pkg_mode_name { get; set; }
-		public string map_time_mode_name { get; set; }
+		public string map_mode_name { get; set; }
 		public string map_status_name { get; set; }
 	}
 

@@ -9,7 +9,7 @@
     var codes = codeRepos.LoadFromTypes("MAP_STATUS", "MAP_MODE");
 }
 <form id="map_form" class="form" role="form">
-    <input type="hidden" id="code_oid" value="@Model.map_seq" />
+    <input type="hidden" id="map_seq" value="@Model.map_seq" />
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-6 col-12 form-group">
@@ -42,50 +42,28 @@
             </div>
             <div class="col-12 form-group">
                 <label for="prod_oid">KKday 商編 *</label>
-                <select id="prod_oid" name="prod_oid" class="form-control" required>
-                    <option value="">請選擇...</option>
-                </select>
+                <input type="hidden" id="prod_oid" name="prod_oid" value="@Model.prod_oid" />
+                <div class="form-control" style="display:inline-table;">@Model.prod_name</div>
             </div>
             <div class="col-12 form-group">
                 <label for="pkg_oid">KKday 方案 *</label>
-                <select id="pkg_oid" name="pkg_oid" class="form-control" required>
-                    <option value="">請選擇...</option>
-                </select>
+                <input type="hidden" id="pkg_oid" name="pkg_oid" value="@Model.pkg_oid" />
+                <div class="form-control" style="display:inline-table;">@Model.pkg_name</div>
             </div>
             <div class="col-12 form-group">
                 <label for="sku_id">KKday SKU *</label>
-                <select id="sku_id" name="sku_id" class="form-control" required>
-                    <option value="">請選擇...</option>
-                </select>
+                <input type="hidden" id="sku_id" name="sku_id" value="@Model.sku_id" />
+                <div class="form-control" style="display:inline-table;">@Model.sku_name</div>
             </div>
             <div class="col-md-6 col-12 form-group align-self-end">
                 <label for="allow_seltime">場次可選擇 </label>
-                <input type="checkbox" name="allow_seltime" id="allow_seltime" data-size="sm" @(Model.allow_seltime ? "checked" : "") onchange="CheckAllowTimeSlot(this);">
+                <input type="checkbox" name="allow_seltime" id="allow_seltime" data-size="sm" @(Model.allow_seltime ? "checked" : "") onchange="CheckAllowTimeSlot();" />
             </div>
             <div class="col-12 form-group">
-                <label>場次設置</label>
-                <div id="time_slots" class="row">
-                    @foreach (var _time in Model.time_slots)
-                    {
-                        <div class="input-group col-md-4 mb-3 slot">
-                            <input class="form-control time" placeholder="hh:mm" value="@_time" />
-                            <div class="input-group-append">
-                                <button type="button" class="btn btn-light" onclick="DeleteSlot(this);">
-                                    <i class="fa fa-times" aria-hidden="true"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                    }
-                    <div class="input-group col-md-4 mb-3 add-slot">
-                        <input class="form-control add-time" placeholder="hh:mm" />
-                        <div class="input-group-append">
-                            <button type="button" class="btn btn-primary" onclick="AddSlot();" @(Model.allow_seltime ? "" : "disabled")>
-                                <i class="fa fa-plus" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <label>場次</label> 
+                <div class="input-group col-md-4 mb-3">
+                    <input id="time_slot" class="form-control" placeholder="hh:mm" value="@Model.time_slot" @(Model.allow_seltime ? "" : "disabled") /> 
+                </div> 
             </div>
         </div>
     </div>
@@ -100,72 +78,8 @@
         }
     });
 
-    $('#allow_seltime').bootstrapToggle();
-
-    $('.selectpicker').selectpicker({
-        noneSelectedText: '全部' //預設顯示內容
-    });
-
-    $('#pkg_oid').on('changed.bs.select', function (e, idx, isSelected, previousValue) {
-        var selected = $(e.currentTarget).val();
-        @*console.log(this.value, idx, isSelected, previousValue)*@
-        ResetSkuOptions();
-
-        _pkgs = [];
-        $('.sel-pkgs').find('option').not(':first').remove();
-        selected.forEach((pkg) => {
-            label = $("#pkg_oid option[value='" + pkg + "']").text();
-            $('.sel-pkgs').append($('<option>', { value: pkg, text: label }));
-
-            origin_pkg = current_prod.pkgs.find(k => k.pkg_oid == pkg);
-            if (origin_pkg == undefined) _pkgs.push({ pkg_oid: pkg, pkg_name: label, skus: [] });
-            else _pkgs.push(origin_pkg);
-
-        })
-        current_prod.pkgs = _pkgs;
-    });
-
-    $('.sel-pkgs').on('change', function () {
-        $('#sku_id').find('option').remove();
-        $('#sku_id').selectpicker('refresh');
-
-        if ($('.sel-pkgs').val() == "")  return false;
-
-        argv = { prod_oid: $('#prod_oid').val(), pkg_oid: $('.sel-pkgs').val() };
-        $.getJSON(_root_path + "ProductMap/QueryPackageSku/", argv, (result) => {
-            if (result.status) {
-                result.item.sku.forEach((sku) => {
-                    console.log(" ===> sku : " + JSON.stringify(sku))
-                    $('#sku_id').append($('<option>', { value: sku.sku_id, text: `${sku.sku_id} ${sku.sku_name}` }));
-                });
-                //還原已勾選 sku
-                var orgin_pkg = current_prod.pkgs.find(k => k.pkg_oid == $('.sel-pkgs').val());
-                if (orgin_pkg != undefined) {
-                    sku_val = orgin_pkg.skus.map((s) => s.sku_id);
-                    console.log(" ---> origin skus : ", sku_val)
-                    $('#sku_id').selectpicker('val', sku_val).selectpicker('refresh');
-                }
-                $('#sku_id').selectpicker('refresh');
-                @*setTimeout(() => {  $('#sku_id').selectpicker('refresh'); }, 500);*@
-            }
-        });
-
-    });
-
-    $('#sku_id').on('changed.bs.select', function (e, idx, isSelected, previousValue) {
-        var skus = $(e.currentTarget).val();
-        _skus = [];
-        skus.forEach((sku) => {
-            var label = $("#sku_id option[value='" + sku + "']").text();
-            _skus.push({ sku_id: sku, sku_name: label });
-        });
-
-        var pkg = current_prod.pkgs.find(k => k.pkg_oid == $('.sel-pkgs').val());
-        if (pkg != undefined) pkg.skus = _skus;
-    });
-
-    BindProductSearch();
-
+    $('#allow_seltime').bootstrapToggle(); 
+  
     ////////////////////////////
 
     function AddSlot() {
@@ -187,70 +101,9 @@
         $(el).closest('.slot').remove();
     }
 
-    function BindProductSearch() {
-        $('#prod_oid').select2({
-            theme: "bootstrap",
-            dataCache: [],
-            width: '100%',
-            minimumInputLength: 2,
-            maximumInputLength: 10,
-            placeholder: '請輸入名稱...',
-            ajax: {
-                url: _root_path + "ProductMap/QueryProduct/",
-                type: 'get',
-                // 要送出的資料
-                data: function (params) {
-                    return {
-                        id: params.term
-                    };
-                },
-                processResults: function (data, params) {
-                    //console.log(data)
-                    return {
-                        results: data,
-                        pagination: {
-                            more: false // 可以啟用無線捲軸做分頁
-                        }
-                    }
-                }
-            }
-        });
-
-        $('#prod_oid').on('select2:select', function (e) {
-            var data = e.params.data;
-            console.log(data);
-
-            $('#pkg_oid').find('option').remove(); $('#pkg_oid').selectpicker('refresh');
-            ResetSkuOptions();
-
-            current_prod = { prod_oid: data.id, prod_name: data.text, pkgs: [] };
-
-            $.getJSON(_root_path + "ProductMap/QueryPackage/" + data.id, (result) => {
-                console.log(JSON.stringify(result));
-                if (result.status) {
-                    result.pkgs.forEach((pkg) => {
-                        $('#pkg_oid').append($('<option>', { value: pkg.id, text: pkg.text }));
-                    });
-
-                    $('#pkg_oid').selectpicker('refresh');
-                }
-
-            });
-        });
-    }
-
-    function ResetSkuOptions() {
-        $('.sel-pkgs').find('option').not(':first').remove();
-        $('#sku_id').find('option').remove(); $('#sku_id').selectpicker('refresh');
-    }
-
-    function CheckAllowTimeSlot(el) {
-        if ($(el).is(':checked')) {
-            $('.add-slot button').prop('disabled', false);
-        }
-        else {
-            $('.slot').remove();
-            $('.add-slot button').prop('disabled', true);
-        }
+    function CheckAllowTimeSlot() {
+        allow_sel = $('#allow_seltime').is(':checked');
+        $('#time_slot').prop('disabled', !allow_sel);
+        if (!allow_sel) $('#time_slot').val('');
     }
 </script>

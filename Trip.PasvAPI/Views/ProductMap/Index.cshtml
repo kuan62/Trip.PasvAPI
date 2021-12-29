@@ -1,27 +1,49 @@
 ﻿@using System.Globalization
+@using Trip.PasvAPI.Models.Repository
+
+@inject CodeRepository codeRepos
 @{
+    ViewData["Title"] = "商品對應";
+
+    var codes = codeRepos.LoadFromTypes("MAP_STATUS", "MAP_MODE");
 }
 @section Styles {
     <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
     <link rel="stylesheet" href="~/lib/bootstrap-select/dist/css/bootstrap-select.css" />
     <link rel="stylesheet" href="~/lib/select2/dist/css/select2.css" />
-    <link rel="stylesheet" href="~/lib/select2/dist/css/select2-bootstrap.css" /> 
+    <link rel="stylesheet" href="~/lib/select2/dist/css/select2-bootstrap.css" />
     <link rel="stylesheet" href="~/lib/bootstrap-table/dist/bootstrap-table.css" />
 
     <style type="text/css">
-        
-        th { background-color: #F7F2E0; }
-        .text-nowrap { white-space: nowrap; }
-        .th-w66px .th-inner { width: 66px; }
-        .th-w180px .th-inner { width: 180px; }
-        .th-w230px .th-inner { width: 260px; } 
-        .th-w320px .th-inner {  width: 320px; }
+
+        th {
+            background-color: #F7F2E0;
+        }
+
+        .text-nowrap {
+            white-space: nowrap;
+        }
+
+        .th-w66px .th-inner {
+            width: 66px;
+        }
+
+        .th-w180px .th-inner {
+            width: 180px;
+        }
+
+        .th-w230px .th-inner {
+            width: 260px;
+        }
+
+        .th-w320px .th-inner {
+            width: 320px;
+        }
 
         .bootstrap-select.show-tick .dropdown-menu .selected span.check-mark {
             position: relative;
             top: 0;
         }
-         
     </style>
 }
 @section Scripts {
@@ -32,11 +54,12 @@
     <script src="~/lib/bootstrap-table/dist/locale/bootstrap-table-zh-TW.js"></script>
 }
 <div class="container-fluid">
+
     <div class="row">
         <div class="col-12">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="#">首頁</a></li> 
+                    <li class="breadcrumb-item"><a href="#">首頁</a></li>
                     <li class="breadcrumb-item active" aria-current="page">商品對應</li>
                 </ol>
             </nav>
@@ -45,6 +68,46 @@
 
     <div class="row">
         <div class="col-12">
+            <div class="row">
+                <div class="col-md-2 col-sm-4 mt-1 ">
+                    <lable for="search_ota_pid">OTA 商品編號</lable>
+                    <input id="search_ota_pid" name="search_ota_pid" class="form-control" placeholder="請輸入文字..." />
+                </div>
+                <div class="col-md-2 col-sm-4 mt-1 ">
+                    <lable for="search_ota_pname">OTA 商品名稱</lable>
+                    <input id="search_ota_pname" name="search_ota_pname" class="form-control" placeholder="請輸入文字..." />
+                </div>
+                <div class="col-md-2 col-sm-4 mt-1 ">
+                    <lable for="search_prod_name">商品名稱</lable>
+                    <input id="search_prod_name" name="search_prod_name" class="form-control" placeholder="請輸入文字..." />
+                </div>
+                <div class="col-md-2 col-sm-4 mt-1 ">
+                    <lable for="search_pkg_name">方案名稱</lable>
+                    <input id="search_pkg_name" name="search_pkg_name" class="form-control" placeholder="請輸入文字..." />
+                </div>
+                <div class="col-md-2 col-sm-4 mt-1 ">
+                    <lable for="search_sku_name">SKU 名稱</lable>
+                    <input id="search_sku_name" name="search_sku_name" class="form-control" placeholder="請輸入文字..." />
+                </div>
+                <div class="col-md-2 col-sm-4  mt-1 align-self-end">
+                    <button type="button" class="btn btn-primary" onclick="Refresh();">搜尋</button>
+                    <button type="button" class="btn btn-light" onclick="Reset();">重置</button>
+                </div>
+                <div class="col-md-2 col-sm-4 mt-1 ">
+                    <lable for="search_map_status">狀態</lable>
+                    <select id="search_map_status" name="search_map_status" class="form-control">
+                        <option value="">請選擇...</option>
+                        @foreach (var item in codes.Where(c => c.code_type == "MAP_STATUS").OrderBy(c => c.sort).ToList())
+                        {
+                            <option value="@(item.code_no)">@(item.code_name.GetValue("basic"))</option>
+                        }
+                    </select>
+                </div>
+              
+            </div>
+        </div>
+        <div class="col-12 mt-2">
+            <hr />
             <a href="@Url.Content("~/ProductMap/Add/")" class="btn btn-primary" data-action="add" data-backdrop="static"
                data-keyboard="false" data-toggle="modal" data-target="#CommonModal" data-title="新增對應">
                 <i class="fa fa-plus" aria-hidden="true"></i> 新增
@@ -58,6 +121,7 @@
         <div class="col-12">
             <table id="table"
                    data-toggle="table"
+                   data-method="post"
                    data-url="@Url.Content("~/ProductMap/FetchData")"
                    data-sort-name="ota_prod_id" data-sort-order="asc"
                    data-page-size="50"
@@ -73,12 +137,12 @@
                         </th>
                         <th data-field="ota_prod_id" data-sortable="true" class="text-nowrap">OTA 商編</th>
                         <th data-field="ota_prod_name" data-sortable="true" class="th-w320px">OTA 品名</th>
-                        <th data-field="ota_plu" class="text-nowrap">PLU</th>
+                        <th data-field="ota_plu" data-formatter="ColumOtaPlu" data-sortable="true" class="text-nowrap">PLU</th>
                         <th data-field="prod_name" data-sortable="true" class="th-w320px">商品名稱</th>
                         <th data-field="pkg_name" data-sortable="true" class="th-w320px">方案名稱</th>
                         <th data-field="sku_name" data-sortable="true" class="th-w320px">SKU</th>
                         <th data-field="map_mode_name">商品模式</th>
-                        <th data-field="map_status">狀態</th>
+                        <th data-field="map_status_name" data-sortable="true">狀態</th>
                         <th data-formatter="ColumnTimeSlot">場次</th>
                         <th data-formatter="ColumnUser" class="text-nowrap">最後更新者</th>
                         <th data-formatter="TableActions" class="text-nowrap"></th>
@@ -109,8 +173,7 @@
     </div>
 </div>
 
-<script type="text/javascript">
-    var current_prod = {};
+<script type="text/javascript">var current_prod = {};
 
     $(function () {
 
@@ -131,27 +194,44 @@
 
             $(this).find(".modal-body").html('<img src="/images/loading.gif" style="width:32px;" />').load(rel_url, function () {
                 _cmd = "";
-                if (action == "add") _cmd = "ExpandProductMap()";
-                if (action == "edit") _cmd = "";
+                if (action == "add") _cmd = "ExpandProductMap();";
+                if (action == "edit") _cmd = "UpdateMapItem();";
                 console.log("==> _cmd = " + _cmd)
                 if (_cmd != "") $(_modal).find(".modal-footer > .confirm").unbind("click").bind("click", function () { eval(_cmd); });
             });
         });
 
         $(document).on('hide.bs.modal', '.modal', function (e) {
-            $(this).find(".modal-body").html('');
+            $(this).find('.modal-body').html('');
+            $(this).data('bs.modal', null);
         });
+         
 
-        $('#table').on('load-success.bs.table', function (event, rowArray) {
+        $("#table").bootstrapTable({
+            contentType: 'application/x-www-form-urlencoded'
+        }).on('load-success.bs.table', function (event, rowArray) {
             BindCheckAll();
             $('[data-toggle="popover"]').popover();
         })
     });
 
+    function Reset() {
+        $('#search_ota_pid, #search_ota_pname, #search_prod_name, #search_pkg_name, #search_sku_name, #search_map_status').val('');
+        Refresh();
+    }
+
     function Refresh() {
-        _filterCond = JSON.stringify({});
-        $("#table").bootstrapTable("refresh", {
-            url: _root_path + "ProductMap/FetchData?filter=" + _filterCond
+        _filterCond = JSON.stringify({
+            ota_prod_id: $('#search_ota_pid').val(), ota_prod_name: $('#search_ota_pname').val(), map_status: $('#search_map_status').val(),
+            prod_name: $('#search_prod_name').val(), pkg_name: $('#search_pkg_name').val(), sku_name: $('#search_sku_name').val()
+        });
+       
+        $("#table").bootstrapTable('destroy').bootstrapTable({
+            contentType: 'application/x-www-form-urlencoded',
+            queryParams: function (params) {
+                params["filter"] = _filterCond; 
+                return params;
+            } 
         });
     }
 
@@ -163,28 +243,16 @@
         ].join('');
     }
 
+    function ColumOtaPlu(value, row, index) {
+        return [
+            '<label class="mr-1">' + row.ota_plu + '</label>',
+            '<button type="button" class="btn btn-light btn-sm" onclick="CopyToClipBoard(this);"><i class="fa fa-clone" aria-hidden="true"></i></button>'
+        ].join('');
+    }
+
     function ColumnTimeSlot(value, row, index) {
         if (!row.allow_seltime) return "無";
-
-        items = ''; total = 0;
-        if (row.time_slots) {
-            $.each(row.time_slots, (idx, time) => {
-                items += `<div style="padding: 8px;">${time}</div>`;
-                if ((idx + 1) < row.time_slots.length) {
-                    items += `<div class="dropdown-divider"></div>`;
-                }
-                total = idx + 1;
-            });
-        }
-
-        return `<div class="dropdown item-picker" style="display:inline-block;">
-    <button type="button" class="btn btn-light dropdown-toggle" data-toggle="dropdown" data-boundary="window">
-        <span class="item-title">${total} 個</span>
-    </button>
-    <div class="dropdown-menu">
-        ${items}
-    </div>
-</div>`;
+        return row.time_slot;
     }
 
     function ColumnUser(value, row, index) {
@@ -204,9 +272,8 @@
     }
 
     function ExpandProductMap() {
-        console.log("calling ExpandProductMap.... ")
         $('#map_form').data("bootstrapValidator").validate();
-        if (!$('#map_form').data("bootstrapValidator").isValid()) return false;
+        if (!$('#map_form').data("bootstrapValidator").isValid()) { alert("請檢查必要欄位是否滿足!"); return false; }
 
         var req = {
             map_seq: parseInt($("#map_seq").val()), map_mode: $('#map_mode').val(), map_status: $('#map_status').val(),
@@ -238,17 +305,34 @@
         });
     }
 
-    function BindTypeSearch() {
-        //console.log("Call BindTypeSearch...");
+    function UpdateMapItem() {
+        $('#map_form').data("bootstrapValidator").validate();
+        if (!$('#map_form').data("bootstrapValidator").isValid()) { alert("請檢查必要欄位是否滿足!"); return false; }
 
-        $('#code_type').typeahead({
-            minLength: 1,
-            items: 'all',
-            source: function (query, process) {
-                //console.log("Call AJAX for typeahead ")
-                return $.getJSON(_root_path + "Code/QueryCodeTypes/", { id: query }, function (data) {
-                    return process(data);
-                });
+        var req = {
+            map_seq: parseInt($("#map_seq").val()), map_mode: $('#map_mode').val(), map_status: $('#map_status').val(),
+            allow_seltime: $('#allow_seltime').is(':checked'),
+            ota_prod_id: $('#ota_prod_id').val(), ota_prod_name: $('#ota_prod_name').val(),
+            time_slots: $('.slot .time').map((i, e) => { return $(e).val(); }).get()
+        };
+        console.log("===> Update Map Item : " + JSON.stringify(req));
+
+        $.ajax({
+            type: "POST",
+            url: _root_path + "ProductMap/Update",
+            contentType: "application/json; charset=utf-8",
+            data: JSON.stringify(req),
+            dataType: "json",
+            cache: false,
+            async: false,
+            success: function (result) {
+                if (result.status) {
+                    Refresh();
+                    $('#CommonModal').modal('hide');
+                }
+                else {
+                    alert('更新對應項目-作業失敗: ' + result.msg);
+                }
             }
         });
     }
@@ -274,10 +358,10 @@
         //console.log(" ===> removed target maps: " + JSON.stringify(targets))
         if (targets.length < 1) { alert('請先選擇一個以上的商品對應項目!'); return; }
         if (!confirm('您確定要移除選擇的對應項目?')) return;
-            
+
         req = { maps: targets };
         console.log(" ===> RemoveMaps: " + JSON.stringify(req))
-        
+
         $.getJSON(_root_path + "ProductMap/RemoveMaps", $.param(req, true), (result) => {
             if (result.status) {
                 Refresh();
@@ -288,4 +372,14 @@
         });
     }
 
-</script>
+    function CopyToClipBoard(obj) {
+        var text = $(obj).prev().text();
+        const elem = document.createElement('textarea');
+        elem.value = text;
+        document.body.appendChild(elem);
+        elem.select();
+        document.execCommand('copy');
+        document.body.removeChild(elem);
+
+        alert("已複製到剪貼簿。");
+    }</script>

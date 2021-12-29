@@ -3,7 +3,7 @@
 
 @inject CodeRepository codeRepos 
 @{
-    ViewData["Title"] = "代碼編輯";
+    ViewData["Title"] = "編碼維護";
 
     var codeTypes = codeRepos.GetCodeTypes();
 }
@@ -32,9 +32,8 @@
         <div class="col-12">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="#">首頁</a></li>
-                    <li class="breadcrumb-item active">系統維護</li>
-                    <li class="breadcrumb-item active" aria-current="page">代碼管理</li>
+                    <li class="breadcrumb-item"><a href="#">首頁</a></li> 
+                    <li class="breadcrumb-item active" aria-current="page">編碼維護</li>
                 </ol>
             </nav>
         </div>

@@ -7,7 +7,7 @@ namespace Trip.PasvAPI.Models.Model.Trip
     {
         public string sequenceId { get; set; }
         public string otaOrderId { get; set; }
-        public string supplierOrderId { get; set; }
+        public string supplierOrderId { get; set; } // KKday 訂單主檔
     }
 
     //////////
@@ -15,7 +15,7 @@ namespace Trip.PasvAPI.Models.Model.Trip
     public class QueryOrderRespModel
     {
         public string otaOrderId { get; set; }
-        public string supplierOrderId { get; set; }
+        public string supplierOrderId { get; set; } // KKday 訂單主檔
         public List<ItemNodeModel> items { get; set; }
         public class ItemNodeModel
         {

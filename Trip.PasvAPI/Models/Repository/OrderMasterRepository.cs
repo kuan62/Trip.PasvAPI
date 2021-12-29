@@ -31,18 +31,18 @@ namespace Trip.PasvAPI.Models.Repository
             this._cache = memoryCache;
         }
 
-        public List<OrderMasterModel> GetOrders()
+        ////////////////////////
+
+
+        public int GetCount(string filter)
         {
             try
-            {
-                SqlMapper.AddTypeHandler(typeof(BookingDataModel), new ObjectJsonMapper());
-                SqlMapper.AddTypeHandler(typeof(Dictionary<string, object>), new ObjectJsonMapper());
-
+            { 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"SELECT * FROM order_master";
+                    var sqlStmt = @$"select count(1) from order_master a where 1=1 ";
 
-                    return conn.Query<OrderMasterModel>(sqlStmt).ToList();
+                    return conn.QuerySingle<int>(sqlStmt);
                 }
             }
             catch (Exception ex)
@@ -51,30 +51,53 @@ namespace Trip.PasvAPI.Models.Repository
             }
         }
 
-        public OrderMasterModel GetOrder(string kkday_order_master_mid = null, string kkday_order_mid = null)
+        public List<OrderMasterExModel> GetOrders(string filter, string sorting, int size, int skip)
         {
             try
             {
-                if (string.IsNullOrEmpty(kkday_order_master_mid) && string.IsNullOrEmpty(kkday_order_mid)) return null;
+                SqlMapper.AddTypeHandler(typeof(BookingDataModel), new ObjectJsonMapper());
+                SqlMapper.AddTypeHandler(typeof(Dictionary<string, object>), new ObjectJsonMapper());
+
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"select distinct a.*, b.prod_name, b.ota_prod_name
+from order_master a 
+left join product_map b on b.prod_oid = a.booking_info->>'prod_no' and b.pkg_oid=a.booking_info->>'pkg_no'
+where 1=1 ";
+
+                    return conn.Query<OrderMasterExModel>(sqlStmt).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        public OrderMasterModel GetOrder(string order_master_mid = null, string order_mid = null)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(order_master_mid) && string.IsNullOrEmpty(order_mid)) return null;
 
                 SqlMapper.AddTypeHandler(typeof(BookingDataModel), new ObjectJsonMapper());
                 SqlMapper.AddTypeHandler(typeof(Dictionary<string, object>), new ObjectJsonMapper());
 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"SELECT * FROM order_master WHERE 1=1 ";
+                    var sqlStmt = @$"select * from order_master where 1=1 ";
                     var sqlParams = new DynamicParameters();
 
-                    if (!string.IsNullOrEmpty(kkday_order_master_mid))
+                    if (!string.IsNullOrEmpty(order_master_mid))
                     {
-                        sqlStmt += " AND kkday_order_master_mid=:kkday_order_master_mid";
-                        sqlParams.Add("kkday_order_master_mid", kkday_order_master_mid);
+                        sqlStmt += " and order_master_mid=:order_master_mid";
+                        sqlParams.Add("order_master_mid", order_master_mid);
                     }
 
-                    if (!string.IsNullOrEmpty(kkday_order_mid))
+                    if (!string.IsNullOrEmpty(order_mid))
                     {
-                        sqlStmt += " AND kkday_order_mid=:kkday_order_mid";
-                        sqlParams.Add("kkday_order_mid", kkday_order_mid);
+                        sqlStmt += " AND order_mid=:order_mid";
+                        sqlParams.Add("order_mid", order_mid);
                     }
 
                     return conn.QuerySingleOrDefault<OrderMasterModel>(sqlStmt, sqlParams);
@@ -92,7 +115,7 @@ namespace Trip.PasvAPI.Models.Repository
             { 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"SELECT a.kkday_order_master_mid
+                    var sqlStmt = @$"SELECT a.order_master_mid
 FROM order_master a
 JOIN trip_order b ON a.trip_order_oid=b.trip_order_oid
 WHERE b.ota_order_id=:ota_order_id";
@@ -150,16 +173,16 @@ WHERE b.ota_order_id=:ota_order_id";
             // 新增記錄到 order_master 資料表
             var model = new OrderMasterModel()
             {
-                kkday_order_master_mid = order_master_mid,
-                kkday_order_mid = order_data.order_mid,
-                kkday_order_oid = order_data.order_oid,
+                order_master_mid = order_master_mid,
+                order_mid = order_data.order_mid,
+                order_oid = order_data.order_oid,
                 booking_info = new BookingDataModel(),
                 status = "GO",
-                trip_order_oid = req.trip_order_oid,
-                trip_sequence_id = req.sequence_id,
-                trip_item_seq = 0,
-                trip_item_pax = trip_pax_lst.ToArray(),
-                trip_item_plu = item.PLU,
+                ota_order_id = req.trip_order_oid.ToString(),
+                ota_sequence_id = req.sequence_id,
+                ota_item_seq = 0,
+                ota_item_pax = trip_pax_lst.ToArray(),
+                ota_item_plu = item.PLU,
                 create_user = "SYSTEM",
                 create_time = DateTime.Now
             };
@@ -179,7 +202,7 @@ WHERE b.ota_order_id=:ota_order_id";
             {
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"UPDATE order_master SET status=:status WHERE kkday_order_master_mid=:order_master_mid ";
+                    var sqlStmt = @$"UPDATE order_master SET status=:status WHERE order_master_mid=:order_master_mid ";
                     conn.Execute(sqlStmt, new { order_master_mid, status }); 
                 }
             }
@@ -196,7 +219,7 @@ WHERE b.ota_order_id=:ota_order_id";
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
                     var sqlStmt = @$"UPDATE order_master SET status='CX_ING', trip_sequence_id=:trip_sequence_id
-WHERE kkday_order_master_mid=:order_master_mid ";
+WHERE order_master_mid=:order_master_mid ";
 
                     var result = conn.Execute(sqlStmt, new { order_master_mid, trip_sequence_id });
                     return result > 0 ? true : false;
@@ -225,9 +248,9 @@ SELECT a.*, b.ota_order_id, b.items->a.trip_item_seq as item,
   b.items->a.trip_item_seq->>'quantity' as use_quantity
 FROM order_master a
 LEFT JOIN trip_order b ON a.trip_order_oid = b.trip_order_oid
-WHERE a.kkday_order_master_mid = :kkday_order_master_mid ";
+WHERE a.order_master_mid = :order_master_mid ";
 
-                    return conn.Query<OrderMasterExModel>(sqlStmt, new { kkday_order_master_mid = order_master_mid }).ToList();
+                    return conn.Query<OrderMasterExModel>(sqlStmt, new { order_master_mid = order_master_mid }).ToList();
 
                 }
             }
@@ -334,10 +357,10 @@ WHERE a.kkday_order_master_mid = :kkday_order_master_mid ";
 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"INSERT INTO order_master(kkday_order_master_mid, kkday_order_mid, kkday_order_oid,
-  trip_order_oid, trip_sequence_id, trip_item_seq, trip_item_pax, trip_item_plu, status, booking_info, param1, create_user)
-VALUES(:kkday_order_master_mid, :kkday_order_mid, :kkday_order_oid, :trip_order_oid, :trip_sequence_id, :trip_item_seq, :trip_item_pax, :trip_item_plu,
-  :status, :booking_info::jsonb, :param1::jsonb, :create_user) ";
+                    var sqlStmt = @$"INSERT INTO order_master(order_master_mid, order_mid, order_oid,
+  ota_order_id, ota_sequence_id, ota_item_seq, ota_item_pax, ota_item_plu, ota_tag, status, booking_info, param1, create_user)
+VALUES(:order_master_mid, :order_mid, :order_oid, :ota_order_id, :ota_sequence_id, :ota_item_seq, :ota_item_pax, :ota_item_plu,
+ :ota_tag, :status, :booking_info::jsonb, :param1::jsonb, :create_user) ";
 
                     conn.Execute(sqlStmt, req);
                 }

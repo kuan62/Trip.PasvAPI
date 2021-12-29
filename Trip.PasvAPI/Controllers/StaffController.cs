@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Trip.PasvAPI.AppCode;
 using Trip.PasvAPI.Models.Model;
@@ -13,6 +14,7 @@ using Trip.PasvAPI.Models.Repository;
 
 namespace Trip.PasvAPI.Controllers
 {
+    [Authorize(AuthenticationSchemes = "Broker.Staff", Policy = "Staff.Only")]
     public class StaffController : Controller
     {
         // GET: /<controller>/
