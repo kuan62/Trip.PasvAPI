@@ -115,10 +115,10 @@ where 1=1 ";
             { 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"SELECT a.order_master_mid
-FROM order_master a
-JOIN trip_order b ON a.trip_order_oid=b.trip_order_oid
-WHERE b.ota_order_id=:ota_order_id";
+                    var sqlStmt = @$"select a.order_master_mid
+from order_master a
+join trip_order b on a.ota_order_id=b.ota_order_id
+where b.ota_order_id=:ota_order_id";
 
                     return conn.QuerySingleOrDefault<string>(sqlStmt, new { ota_order_id });
                 }
@@ -357,10 +357,10 @@ WHERE a.order_master_mid = :order_master_mid ";
 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"INSERT INTO order_master(order_master_mid, order_mid, order_oid,
-  ota_order_id, ota_sequence_id, ota_item_seq, ota_item_pax, ota_item_plu, ota_tag, status, booking_info, param1, create_user)
+                    var sqlStmt = @$"INSERT INTO order_master(order_master_mid, order_mid, order_oid, ota_order_id, ota_sequence_id,
+ ota_item_seq, ota_item_pax, ota_item_plu, ota_tag, status, booking_info, param1,  currency, amount, create_user)
 VALUES(:order_master_mid, :order_mid, :order_oid, :ota_order_id, :ota_sequence_id, :ota_item_seq, :ota_item_pax, :ota_item_plu,
- :ota_tag, :status, :booking_info::jsonb, :param1::jsonb, :create_user) ";
+ :ota_tag, :status, :booking_info::jsonb, :param1::jsonb, :currency, :amount, :create_user) ";
 
                     conn.Execute(sqlStmt, req);
                 }

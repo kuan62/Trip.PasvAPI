@@ -172,7 +172,9 @@ namespace Trip.PasvAPI.Models.Repository
                             param1 = new Dictionary<string, object>(),
                             status = "OK",
                             create_user = "SYSTEM",
-                            ota_tag = "TRIP"
+                            ota_tag = "TRIP",
+                            amount = tripOrder.items.Sum(i => i.price),
+                            currency = "CNY"
                         }); ;
 
                     }
@@ -461,9 +463,9 @@ namespace Trip.PasvAPI.Models.Repository
 
                     if (sku != null)
                     {
-                        var b2dPrice = Convert.ToDouble(sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2b_price"]?["fullday"]);
-                        // 比對金額!
-                        if (b2dPrice == tripOrder.items[0]?.cost)
+                        var b2cPrice = Convert.ToDouble(sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2c_price"]?["fullday"]);
+                        // 以 B2C 價格比對金額!
+                        if (b2cPrice == tripOrder.items[0]?.price)
                         {
                             chkLoop = true;
                         }
@@ -695,10 +697,9 @@ namespace Trip.PasvAPI.Models.Repository
             try
             {
                 BookingProdInfo prodInfo = fullBookingProdInfo( tripOrder?.sequenceId, tripOrder.items[0]);
-
-
+                 
                 //帶入商品與套餐資料
-                double total_price = 0;
+                double total_price = 0, ota_price = 0;
                 var skuLst = new List<BookingDataSkuModel>();
 
                 tripOrder.items.ForEach(i => {
@@ -707,8 +708,11 @@ namespace Trip.PasvAPI.Models.Repository
                     var _sku = pkg.item[0].skus.Where(x => x.sku_id.Equals(sku_id))?.FirstOrDefault();
                     if (_sku != null)
                     {
+                        var b2cPrice = Convert.ToDouble(_sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2c_price"]?["fullday"]);
                         var b2dPrice = Convert.ToDouble(_sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2b_price"]?["fullday"]);
-                        total_price += b2dPrice * i.quantity;
+
+                        total_price += b2dPrice * i.quantity; // Net Price * qty
+                        ota_price += b2cPrice * i.quantity; // B2C Price * qty (真正的金額)
                     }
 
                     skuLst.Add(new BookingDataSkuModel() {
@@ -728,8 +732,8 @@ namespace Trip.PasvAPI.Models.Repository
                 bookingData.s_date = tripOrder.items[0].useStartDate;
                 bookingData.e_date = tripOrder.items[0].useEndDate;
                 bookingData.event_time = null;
-                bookingData.total_price = total_price;
-                bookingData.ota_pricee = tripOrder.items.Sum(x => x.quantity * x.cost);
+                bookingData.total_price = total_price; // Net Price
+                bookingData.ota_pricee = ota_price; // B2C Price
                 bookingData.order_note = tripOrder.items[0].remark;
                 // 帶入訂購人資訊
                 bookingData.buyer_country = "CN";

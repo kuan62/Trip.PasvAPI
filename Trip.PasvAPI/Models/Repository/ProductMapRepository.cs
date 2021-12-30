@@ -31,7 +31,7 @@ left join code as c2 on a.map_mode=c2.code_no and c2.code_type='MAP_MODE'
             {
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlParams = new ExpandoObject() as IDictionary<string, object>;
+                    var sqlParams = new DynamicParameters();
                     var sqlStmt = $@"select count(*) from ({query_sql}) a
 where 1=1 ";
 
@@ -39,7 +39,7 @@ where 1=1 ";
                     if (!string.IsNullOrEmpty(_filter.cond))
                     {
                         sqlStmt += $" {_filter.cond} \n";
-                        sqlParams.Merge(_filter.args as IDictionary<string, object>);
+                        sqlParams.AddDynamicParams(_filter.args);
                     }
 
                     sqlParams.Add("locale", locale); // 必要的
@@ -62,7 +62,7 @@ where 1=1 ";
 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlParams = new ExpandoObject() as IDictionary<string, object>;
+                    var sqlParams = new DynamicParameters();
                     var sqlStmt = $@"select * from ({query_sql}) a
 where 1=1 ";
 
@@ -71,7 +71,7 @@ where 1=1 ";
                     if (!string.IsNullOrEmpty(_filter.cond))
                     {
                         sqlStmt += $" {_filter.cond} \n";
-                        sqlParams.Merge(_filter.args as IDictionary<string, object>);
+                        sqlParams.AddDynamicParams(_filter.args);
                     }
                     // 排序 Sorting
                     if (!string.IsNullOrEmpty(sorting)) sqlStmt += $" order by {sorting} \n";
@@ -92,10 +92,10 @@ where 1=1 ";
             }
         }
 
-        private (string cond, dynamic args) FilterParsing(string strJson)
+        private (string cond, DynamicParameters args) FilterParsing(string strJson)
         {
             var _filter = "";
-            var _params = new ExpandoObject() as IDictionary<string, object>;
+            var _params = new DynamicParameters();
 
             if (string.IsNullOrEmpty(strJson)) return (cond: _filter, args: _params);
 

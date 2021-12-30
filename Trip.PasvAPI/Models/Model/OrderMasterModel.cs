@@ -17,6 +17,9 @@ namespace Trip.PasvAPI.Models.Model
 		public int [] ota_item_pax { get; set; }
 		public string ota_tag { get; set; }
 
+		public string currency { get; set; }
+		public double amount { get; set; }
+
 		public string status { get; set; }
 		public BookingDataModel booking_info { get; set; }
 		public Dictionary<string, object> param1 { get; set; }
