@@ -193,20 +193,22 @@ namespace Trip.PasvAPI.Controllers
                                             items = _items,
                                         };
                                     }
-                                    // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006
+                                    /*  
+                                    // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006...(沙箱測試)
                                     else if (i.passengers.Count() < 1)
                                     {
                                         resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
                                         resp_msg = $" PLU={ i.PLU } : 缺失出行人";
                                         resp_body = null;
                                     }
-                                    // (4) 判斷缺失证件(ageType, cardNo, etc), 則回傳錯誤碼: 1005/1006 
+                                    // (4) 判斷缺失证件(ageType, cardNo, etc), 則回傳錯誤碼: 1005/1006...(沙箱測試)
                                     else if (invalid_count > 0)
                                     {
                                         resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
                                         resp_msg = $" PLU={ i.PLU } : 缺失证件";
                                         resp_body = null;
                                     }
+                                    */
                                     // 檢驗無誤!! 加入待處理項目清單
                                     else
                                     {
@@ -327,6 +329,7 @@ namespace Trip.PasvAPI.Controllers
                                     order.items.ForEach(i =>
                                     {
                                         int invalid_spec_count = 0;
+
                                         // (2) 判斷庫存不足, 則回傳錯誤碼: 1003
                                         if (i.quantity > remaing_qty)
                                         {
@@ -354,7 +357,8 @@ namespace Trip.PasvAPI.Controllers
                                                 items = _items,
                                             };
                                         }
-                                        // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006
+                                        /*
+                                        // (3) 判斷缺失出行人, 則回傳錯誤碼: 1005/1006...(沙箱測試)
                                         else if (i.passengers.Count() < 1)
                                         {
                                             resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
@@ -362,7 +366,7 @@ namespace Trip.PasvAPI.Controllers
                                             resp_body = null;
                                             return;
                                         }
-                                        // (4) 判斷缺失证件(ageType, cardNo), 則回傳錯誤碼: 1005/1006
+                                        // (4) 判斷缺失证件(ageType, cardNo), 則回傳錯誤碼: 1005/1006...(沙箱測試)
                                         else if (invalid_spec_count > 0)
                                         {
                                             resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
@@ -371,6 +375,7 @@ namespace Trip.PasvAPI.Controllers
                                             return;
 
                                         }
+                                        */
                                         // 檢驗無誤!! 加入待處理項目清單
                                         else
                                         {

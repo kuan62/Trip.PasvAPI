@@ -163,6 +163,14 @@ namespace Trip.PasvAPI
                 app.UseHsts();
             }
 
+            // 啟動預帶的指定路徑
+            var pathBase = Configuration["PathBase"];
+            if (!string.IsNullOrEmpty(pathBase))
+            {
+                Console.WriteLine($"PathBase => {pathBase}");
+                app.UsePathBase(pathBase);
+            }
+
             // 抓取遠端 Client IP
             app.UseForwardedHeaders(new ForwardedHeadersOptions
             {

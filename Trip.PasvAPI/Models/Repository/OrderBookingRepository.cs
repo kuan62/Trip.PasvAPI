@@ -10,6 +10,7 @@ using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Npgsql;
 using Trip.PasvAPI.AppCode;
+using Trip.PasvAPI.Models.Enum;
 using Trip.PasvAPI.Models.Model;
 using Trip.PasvAPI.Models.Model.Trip;
 using Trip.PasvAPI.Proxy;
@@ -33,11 +34,11 @@ namespace Trip.PasvAPI.Models.Repository
             this._masterRepos = masterRepos;
         }
 
-        //查詢product
-        //查詢package 取sku token
-        //沒有場次的金額{"2021-11-21":{"b2b_price":{"fullday":170},"b2c_price":{"fullday":200}}}
-        //有場次{"2021-11-21":{"b2b_price":{"09:00":508,"14:00":508},"b2c_price":{"09:00":535,"14:00":535}}}
-        //要確認 1.有位控 2.日期必須要有金額必須相同
+        // (1) 查詢product
+        // (2) 查詢package，取 sku 與 token
+        // (3) 沒有場次的金額{"2021-11-21":{"b2b_price":{"fullday":170},"b2c_price":{"fullday":200}}}
+        // (4) 有場次{"2021-11-21":{"b2b_price":{"09:00":508,"14:00":508},"b2c_price":{"09:00":535,"14:00":535}}}
+        // 要確認 1.有位控 2.日期必須要有金額必須相同
         public ResponeObj crtOrder(CreateOrderReqModel tripOrder)
         {
             var jsonTrip = JsonConvert.SerializeObject(tripOrder);
@@ -109,7 +110,7 @@ namespace Trip.PasvAPI.Models.Repository
                     return resp;
                     //throw new Exception("市㘯未开放！");
                 }
-
+                 
                 PackageRespModel pkg = null;
                 // fetch the value from the source
 
@@ -144,7 +145,7 @@ namespace Trip.PasvAPI.Models.Repository
                 resp = this.chkAmount(tripOrder, pkg);if(resp.resp_code != "0000") { return resp; }//確認餘額
                 resp = this.chkAllotmen(tripOrder, pkg); if (resp.resp_code != "0000") { return resp; }//確認庫存
                 resp = this.chkPrice(tripOrder, pkg); if (resp.resp_code != "0000") { return resp; }//確認價格
-                resp = this.chkBookingField(tripOrder?.sequenceId, prod, pkg); if (resp.resp_code != "0000") { return resp; }//確認旅規
+                resp = this.chkBookingField(tripOrder, prod, pkg); if (resp.resp_code != "0000") { return resp; }//確認旅規
 
                 //滿足 BookingDataModel
                 BookingDataModel bookingData = this.PrepareBookingModel(tripOrder, prod, pkg);
@@ -153,8 +154,12 @@ namespace Trip.PasvAPI.Models.Repository
                 {
                     resp = _bookingProxy.Booking(tripOrder?.sequenceId, bookingData, Website.Instance.B2dApiAuthorToken);
 
+                    var booking_resp = $"booking_resp: {System.Text.Json.JsonSerializer.Serialize(resp)}";
+                    System.Console.WriteLine(booking_resp);
+                    Website.Instance.logger.Info(booking_resp);
+
                      // 成功, 寫入 order_master
-                    if(resp.resp_code.Equals("00") || resp.resp_code.Equals("0000"))
+                    if(Convert.ToInt32(resp.resp_code) == 0)
                     {
                          var pax_lst = new List<int>();
                          tripOrder.items.ForEach(i => pax_lst.Add(tripOrder.items.IndexOf(i)));
@@ -173,7 +178,7 @@ namespace Trip.PasvAPI.Models.Repository
                             status = "OK",
                             create_user = "SYSTEM",
                             ota_tag = "TRIP",
-                            amount = tripOrder.items.Sum(i => i.price),
+                            amount = tripOrder.items.Sum(i => i.cost),
                             currency = "CNY"
                         }); ;
 
@@ -308,7 +313,7 @@ namespace Trip.PasvAPI.Models.Repository
                     return res;
                 }
 
-                if (pkg.item[0].position.result != "0000")
+                if (Convert.ToInt32(pkg.item[0]?.position?.result ?? "-1") != 0)
                 {
                     res.resp_code = "1003";
                     res.resp_msg = "库存不足";
@@ -437,7 +442,7 @@ namespace Trip.PasvAPI.Models.Repository
             }
         }
 
-        //確認價格
+        // 確認價格
         private ResponeObj chkPrice(CreateOrderReqModel tripOrder, PackageRespModel pkg)
         {
             ResponeObj res = new ResponeObj();
@@ -445,8 +450,7 @@ namespace Trip.PasvAPI.Models.Repository
             Boolean chkLoop = false;
             try
             {
-                //依據eric提obj.items.cost 為b2d的價格比對依據
-                //eric說不會有event!
+                //依據 Eric 提 obj.items.cost 為b2d的價格比對依據，也不會有event!
                 //沒有場次的金額{"2021-11-21":{"b2b_price":{"fullday":170},"b2c_price":{"fullday":200}}}
                 //有場次{"2021-11-21":{"b2b_price":{"09:00":508,"14:00":508},"b2c_price":{"09:00":535,"14:00":535}}}
                 //要確認 1.有位控 2.日期必須要有金額必須相同 
@@ -463,9 +467,9 @@ namespace Trip.PasvAPI.Models.Repository
 
                     if (sku != null)
                     {
-                        var b2cPrice = Convert.ToDouble(sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2c_price"]?["fullday"]);
-                        // 以 B2C 價格比對金額!
-                        if (b2cPrice == tripOrder.items[0]?.price)
+                        var b2bPrice = Convert.ToDouble(sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2b_price"]?["fullday"]);
+                        // 以 B2B 價格比對金額!
+                        if (b2bPrice == tripOrder.items[0]?.cost)
                         {
                             chkLoop = true;
                         }
@@ -479,7 +483,7 @@ namespace Trip.PasvAPI.Models.Repository
 
                 if (chkLoop == false)
                 {
-                    Website.Instance.logger.Info($"chkPosition 價格驗證失敗! guid={tripOrder?.sequenceId}");
+                    Website.Instance.logger.Info($"chkPrice 價格驗證失敗! guid={tripOrder?.sequenceId}");
                     res.resp_code = "1007";
                     res.resp_msg = "产品价格不存在";
                 }
@@ -499,14 +503,16 @@ namespace Trip.PasvAPI.Models.Repository
 
 
         //確認旅規，目前必須不能有任何要填的旅規 -20211117-eric
-        private ResponeObj chkBookingField(string guid,ProductRespModel prod, PackageRespModel pkg)
+        private ResponeObj chkBookingField(CreateOrderReqModel trip, ProductRespModel prod, PackageRespModel pkg)
         {
+            string guid = trip?.sequenceId; 
             ResponeObj res = new ResponeObj();
             res.resp_code = "0000";
 
             try
             {
                 BookingFieldModel bookingFiled = prod.booking_field;
+
                 //找出這個pkg要填的
                 var RefPkgTemp1 = bookingFiled.RefPkg.Where(x => x.Key.Equals("")).FirstOrDefault();
                 RefPkgAttribute RefPkgTemp2 = RefPkgTemp1.Value;
@@ -519,6 +525,180 @@ namespace Trip.PasvAPI.Models.Repository
                     return res;
                 }
 
+                // 依旅客條件，且 trip 沒提供旅客
+                if(RefPkgTemp2?.customer?.cus_type.Where(t => t.Equals("cus_02")).Count() > 1 && 
+                    trip.items.Where(i => i.passengers.Count() < 1).Count() > 0)
+                {
+                    var plu = trip.items.Select(i => i.PLU).Distinct().FirstOrDefault();
+
+                    res.resp_code = TTdResultCodeEnum.MISSING_INFO.GetHashCode().ToString("D4");
+                    res.resp_msg = $" PLU={ plu } : 缺失出行人";
+                    return res;
+                }
+
+                #region 旅規檢查 --- start
+
+                /*
+                foreach (var cusType in RefPkgTemp2.customer.cus_type)
+                { 
+                    if (cusType == "cus_01") //依代表人
+                    {
+                        if (bookingFiled?.Custom?.EnglishFirstName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.EnglishLastName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Birth?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.GuideLang?.IsRequire == "True")
+                        {
+                        }
+                    }
+
+                    if (cusType == "cus_02") //依旅客
+                    {
+                        if (bookingFiled?.Custom?.EnglishFirstName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.EnglishLastName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Birth?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.GuideLang?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.MtpNo?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.IdNo?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.PassportNo?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.PassportExpdate?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Height?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.HeightUnit?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Weight?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.WeightUnit?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Shoe?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.ShoeType?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.ShoeUnit?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.GlassDegree?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Meal?.IsRequire == "True")
+                        {
+                        }
+                        //allergy_food": null
+
+                    }
+
+                    if (cusType == "send") //寄送地
+                    {
+                        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Address?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.CountryCities?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.Zipcode?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.TelCountryCode?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.TelNumber?.IsRequire == "True")
+                        {
+                        }
+                    }
+
+                    if (cusType == "contact") //聯絡人
+                    {
+
+                        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.ContactApp?.IsRequire == "True")
+                        {
+                            //不能下訂
+                        }
+                        if (bookingFiled?.Custom?.ContactAppAccount?.IsRequire == "True")
+                        {
+                            //不能下訂
+                        }
+                        if (bookingFiled?.Custom?.TelCountryCode?.IsRequire == "True")
+                        {
+                        }
+                        if (bookingFiled?.Custom?.TelNumber?.IsRequire == "True")
+                        {
+                        }
+                    }
+
+
+                    if (prod.booking_field?.Traffic?.Car?.TrafficType?.IsRequire == "True")
+                    {
+                        //不能下訂
+                    }
+
+                    if (prod.booking_field?.MobileDevice?.Imei?.IsRequire == "True")
+                    {
+                        //不能下訂
+                    }
+                    if (prod.booking_field?.MobileDevice?.MobileModelNo?.IsRequire == "True")
+                    {
+                        //不能下訂
+                    }
+                    if (prod.booking_field?.MobileDevice?.ActiveDate?.IsRequire == "True")
+                    {
+                        //不能下訂
+                    }
+                }
+                */
+
+                #endregion 旅規檢查 --- end
+
                 return res;
             }
             catch (Exception ex)
@@ -528,160 +708,7 @@ namespace Trip.PasvAPI.Models.Repository
                 res.resp_msg = "旅規不符";
                 return res;
             }
-
-            //foreach (var cusType in RefPkgTemp2.customer.cus_type)
-            //{
-            //    if (cusType == "cus_02") //依個人
-            //    {
-            //        if (bookingFiled?.Custom?.EnglishFirstName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.EnglishLastName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Birth?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.GuideLang?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.MtpNo?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.IdNo?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.PassportNo?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.PassportExpdate?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Height?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.HeightUnit?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Weight?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.WeightUnit?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Shoe?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.ShoeType?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.ShoeUnit?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.GlassDegree?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Meal?.IsRequire == "True")
-            //        {
-            //        }
-            //        //allergy_food": null
-
-            //    }
-            //    if (cusType == "cus_01") //依代表人
-            //    {
-            //        if (bookingFiled?.Custom?.EnglishFirstName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.EnglishLastName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Birth?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.GuideLang?.IsRequire == "True")
-            //        {
-            //        }
-            //    }
-            //    if (cusType == "send") //寄送地
-            //    {
-            //        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Address?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.CountryCities?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.Zipcode?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.TelCountryCode?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.TelNumber?.IsRequire == "True")
-            //        {
-            //        }
-            //    }
-            //    if (cusType == "contact") //聯絡人
-            //    {
-
-            //        if (bookingFiled?.Custom?.NativeFirstName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.NativeLastName?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.ContactApp?.IsRequire == "True")
-            //        {
-            //            //不能下訂
-            //        }
-            //        if (bookingFiled?.Custom?.ContactAppAccount?.IsRequire == "True")
-            //        {
-            //            //不能下訂
-            //        }
-            //        if (bookingFiled?.Custom?.TelCountryCode?.IsRequire == "True")
-            //        {
-            //        }
-            //        if (bookingFiled?.Custom?.TelNumber?.IsRequire == "True")
-            //        {
-            //        }
-            //    }
-            //}
-
-            //if (prod.booking_field?.Traffic?.Car?.TrafficType?.IsRequire == "True")
-            //{
-            //    //不能下訂
-            //}
-
-            //if (prod.booking_field?.MobileDevice?.Imei?.IsRequire == "True")
-            //{
-            //    //不能下訂
-            //}
-            //if (prod.booking_field?.MobileDevice?.MobileModelNo?.IsRequire == "True")
-            //{
-            //    //不能下訂
-            //}
-            //if (prod.booking_field?.MobileDevice?.ActiveDate?.IsRequire == "True")
-            //{
-            //    //不能下訂
-            //}
-
+             
         }
 
         //滿足
@@ -708,11 +735,11 @@ namespace Trip.PasvAPI.Models.Repository
                     var _sku = pkg.item[0].skus.Where(x => x.sku_id.Equals(sku_id))?.FirstOrDefault();
                     if (_sku != null)
                     {
-                        var b2cPrice = Convert.ToDouble(_sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2c_price"]?["fullday"]);
-                        var b2dPrice = Convert.ToDouble(_sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2b_price"]?["fullday"]);
+                        // var b2cPrice = Convert.ToDouble(_sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2c_price"]?["fullday"]);
+                        var b2bPrice = Convert.ToDouble(_sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2b_price"]?["fullday"]);
 
-                        total_price += b2dPrice * i.quantity; // Net Price * qty
-                        ota_price += b2cPrice * i.quantity; // B2C Price * qty (真正的金額)
+                        total_price += b2bPrice * i.quantity; // B2B(NET) Price * qty
+                        ota_price += b2bPrice * i.quantity; // B2B(NET) Price * qty (真正的金額)
                     }
 
                     skuLst.Add(new BookingDataSkuModel() {
@@ -735,6 +762,7 @@ namespace Trip.PasvAPI.Models.Repository
                 bookingData.total_price = total_price; // Net Price
                 bookingData.ota_pricee = ota_price; // B2C Price
                 bookingData.order_note = tripOrder.items[0].remark;
+
                 // 帶入訂購人資訊
                 bookingData.buyer_country = "CN";
                 bookingData.buyer_email = tripOrder.contacts[0].email;
@@ -753,6 +781,28 @@ namespace Trip.PasvAPI.Models.Repository
                 bookingData.buyer_tel_number= tripOrder.contacts[0].mobile;
                 bookingData.buyer_tel_country_code = tripOrder.contacts[0].intlCode; 
                 bookingData.skus = skuLst;
+
+                // 判斷旅規需帶入旅客資料
+                if (prod?.booking_field?.Custom?.CusType != null) {
+                    if (prod.booking_field.Custom.CusType.ListOption.Where(t => t.Equals("cus_02")).Count() > 0)
+                    {
+                        bookingData.custom = new List<BookingDataCustomModel>();
+                        tripOrder.items.SelectMany(i => i.passengers.Select(p => p)).ToList().ForEach(psg =>
+                         {
+                             custom.Add(new BookingDataCustomModel()
+                             {
+                                 cus_type = "cus_02",
+                                 native_first_name = psg.firstName,
+                                 native_last_name = psg.lastName,
+                                 birth = psg.birthDate,
+                                 id_no = psg.cardNo,
+                                 gender = psg.gender, // M-男, F-女
+                                 tel_country_code = psg.intlCode,
+                                 tel_number = psg.mobile,
+                             });
+                         });
+                    }
+                }
 
                 BookingDataPaymentModel pay = new BookingDataPaymentModel();
                 pay.type = "01";

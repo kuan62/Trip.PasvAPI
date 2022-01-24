@@ -44,7 +44,7 @@
         req = { account: $('#account').val(), passwd: $('#passwd').val() };
         $.getJSON(_root_path + "Login/SignIn", req, function (result) {
             if (result.status) {
-                window.location.href = "/";
+                window.location.href = _root_path;
             }
             else {
                 alert(result.msg);
