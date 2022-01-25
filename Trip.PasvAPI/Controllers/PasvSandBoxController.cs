@@ -302,6 +302,7 @@ namespace Trip.PasvAPI.Controllers
 
                         break;
                     }
+
                 // 订单新订 New order placed (*)
                 case "CreateOrder":
                     {
@@ -582,8 +583,7 @@ namespace Trip.PasvAPI.Controllers
 
                         break;
                     }
-               
-
+                
                 // 订单退款 Order refund (X)
                 case "RefundOrder": break;
 
@@ -660,7 +660,7 @@ namespace Trip.PasvAPI.Controllers
                         // 檢查無誤!
                         else
                         { 
-                            var result = orderMasterRepos.CancelApply(order.supplierOrderId, order.sequenceId);
+                            var result = orderMasterRepos.UpdateCancelApply(order.supplierOrderId, order.sequenceId);
                             if (result)
                             {
                                 // 回傳-結果代碼(Result Code)-成功

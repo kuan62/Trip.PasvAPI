@@ -74,7 +74,7 @@ where 1=1 ";
             }
         }
 
-        public OrderMasterModel GetOrder(string order_master_mid = null, string order_mid = null)
+        public OrderMasterModel GetOrder(string order_master_mid = null, string order_mid = null, string ota_order_id = null)
         {
             try
             {
@@ -85,13 +85,20 @@ where 1=1 ";
 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"select * from order_master where 1=1 ";
+                    var sqlStmt = @$"SELECT * FROM order_master
+WHERE 1=1 ";
                     var sqlParams = new DynamicParameters();
 
                     if (!string.IsNullOrEmpty(order_master_mid))
                     {
-                        sqlStmt += " and order_master_mid=:order_master_mid";
+                        sqlStmt += " AND order_master_mid=:order_master_mid";
                         sqlParams.Add("order_master_mid", order_master_mid);
+                    }
+                    // 當 order_master_mid 空值, 改用 ota_order_id
+                    else if(!string.IsNullOrEmpty(ota_order_id))
+                    {
+                        sqlStmt += " AND ota_order_id=:ota_order_id";
+                        sqlParams.Add("ota_order_id", ota_order_id);
                     }
 
                     if (!string.IsNullOrEmpty(order_mid))
@@ -99,6 +106,7 @@ where 1=1 ";
                         sqlStmt += " AND order_mid=:order_mid";
                         sqlParams.Add("order_mid", order_mid);
                     }
+                     
 
                     return conn.QuerySingleOrDefault<OrderMasterModel>(sqlStmt, sqlParams);
                 }
@@ -212,7 +220,7 @@ where b.ota_order_id=:ota_order_id";
             }
         }
 
-        public bool CancelApply(string order_master_mid, string trip_sequence_id)
+        public bool UpdateCancelApply(string order_master_mid, string trip_sequence_id)
         {
             try
             {

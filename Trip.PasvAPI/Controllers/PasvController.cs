@@ -469,7 +469,6 @@ namespace Trip.PasvAPI.Controllers
 
                         break;
                     }
-               
 
                 // 订单退款 Order refund (X)
                 case "RefundOrder": break;
@@ -487,7 +486,7 @@ namespace Trip.PasvAPI.Controllers
 
                         var orderProxy = HttpContext.RequestServices.GetService<OrderProxy>();
                         var tripOrder = tripOrderRepos.GetOrder(order.otaOrderId);
-                        var master = orderMasterRepos.GetOrder(order_master_mid: order.supplierOrderId);
+                        var master = orderMasterRepos.GetOrder(order_master_mid: order.supplierOrderId, ota_order_id: order.otaOrderId);
                         var map_prod = mapRepos.GetProductMapByPLU(order.items.FirstOrDefault()?.PLU);
 
                         var json_result = orderProxy.GetOrderDetail(master.order_mid, Website.Instance.B2dApiAuthorToken);
@@ -552,10 +551,10 @@ namespace Trip.PasvAPI.Controllers
                         else
                         {
                             // 呼叫 B2D API 進行訂單取消, "MC001" (Tour changed or cancel)
-                            var b2d_result = orderProxy.CancelApply(master.order_mid,"MC001", Website.Instance.B2dApiAuthorToken);
+                            var b2d_result = orderProxy.CancelApply(master.order_mid, "MC001", Website.Instance.B2dApiAuthorToken);
 
                             // 更改本地訂單記錄為 CX_ING
-                            var result = orderMasterRepos.CancelApply(order.supplierOrderId, order.sequenceId);
+                            var result = orderMasterRepos.UpdateCancelApply(order.supplierOrderId, order.sequenceId);
                             if (result)
                             {
                                 // 回傳-結果代碼(Result Code)-成功
@@ -594,7 +593,7 @@ namespace Trip.PasvAPI.Controllers
 
                         var orderProxy = HttpContext.RequestServices.GetService<OrderProxy>();
                         var tripOrder = tripOrderRepos.GetOrder(order.otaOrderId);
-                        var master = orderMasterRepos.GetOrder(order_master_mid: order.supplierOrderId);
+                        var master = orderMasterRepos.GetOrder(order_master_mid: order.supplierOrderId, ota_order_id: order.otaOrderId);
 
                         var json_result = orderProxy.GetOrderDetail(master.order_mid, Website.Instance.B2dApiAuthorToken);
                         var kkday_order = JsonConvert.DeserializeObject<OrderDetailModel>(json_result);

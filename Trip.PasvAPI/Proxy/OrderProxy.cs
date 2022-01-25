@@ -193,6 +193,7 @@ namespace Trip.PasvAPI.Proxy
                             );
                             var response = client.SendAsync(request).Result;
                             jsonResult = response.Content.ReadAsStringAsync().Result;
+                            Website.Instance.logger.Info($"B2D CancelApply Response: {jsonResult}");
 
                             if (response.StatusCode != System.Net.HttpStatusCode.OK)
                             {
