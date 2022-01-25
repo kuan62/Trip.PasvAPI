@@ -24,7 +24,7 @@ namespace Trip.PasvAPI.Proxy
             try
             {
                 var jsonResult = "";
-                var kkdayUrl = _config["KKdayApiUrl"];
+                var kkdayUrl = _config["B2D_API:Url"];
                 //var authorToken = Website.Instance.KKdayApiAuthorizeToken;
 
                 using (var handler = new HttpClientHandler())
@@ -79,7 +79,7 @@ namespace Trip.PasvAPI.Proxy
             try
             {
                 var jsonResult = "";
-                var kkdayUrl = _config["KKdayApiUrl"];
+                var kkdayUrl = _config["B2D_API:Url"];
                 //var authorToken = Website.Instance.KKdayApiAuthorizeToken;
 
                 using (var handler = new HttpClientHandler())
@@ -120,7 +120,7 @@ namespace Trip.PasvAPI.Proxy
             try
             {
                 var jsonResult = "";
-                var kkdayUrl = _config["KKdayApiUrl"];
+                var kkdayUrl = _config["B2D_API:Url"];
                 //var authorToken = Website.Instance.KKdayApiAuthorizeToken;
 
                 using (var handler = new HttpClientHandler())
@@ -165,7 +165,7 @@ namespace Trip.PasvAPI.Proxy
              try
             {
                 var jsonResult = "";
-                var kkdayUrl = _config["KKdayApiUrl"];
+                var kkdayUrl = _config["B2D_API:Url"];
                 //var authorToken = Website.Instance.KKdayApiAuthorizeToken;
 
                 using (var handler = new HttpClientHandler())

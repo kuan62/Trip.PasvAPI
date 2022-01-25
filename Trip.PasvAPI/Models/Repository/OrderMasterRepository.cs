@@ -220,16 +220,16 @@ where b.ota_order_id=:ota_order_id";
             }
         }
 
-        public bool UpdateCancelApply(string order_master_mid, string trip_sequence_id)
+        public bool UpdateCancelApply(string order_master_mid, string ota_sequence_id)
         {
             try
             {
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"UPDATE order_master SET status='CX_ING', trip_sequence_id=:trip_sequence_id
+                    var sqlStmt = @$"UPDATE order_master SET status='CX_ING', ota_sequence_id=:ota_sequence_id
 WHERE order_master_mid=:order_master_mid ";
 
-                    var result = conn.Execute(sqlStmt, new { order_master_mid, trip_sequence_id });
+                    var result = conn.Execute(sqlStmt, new { order_master_mid, ota_sequence_id });
                     return result > 0 ? true : false;
                 }
             }
@@ -249,13 +249,13 @@ WHERE order_master_mid=:order_master_mid ";
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
                     var sqlStmt = @"
-SELECT a.*, b.ota_order_id, b.items->a.trip_item_seq as item,
-  b.items->a.trip_item_seq->>'itemId' as trip_item_id,
-  b.items->a.trip_item_seq->>'useStartDate' as use_start_date,
-  b.items->a.trip_item_seq->>'useEndDate' as use_end_date,
-  b.items->a.trip_item_seq->>'quantity' as use_quantity
+SELECT a.*, b.ota_order_id, b.items->a.ota_item_seq as item,
+  b.items->a.ota_item_seq->>'itemId' as trip_item_id,
+  b.items->a.ota_item_seq->>'useStartDate' as use_start_date,
+  b.items->a.ota_item_seq->>'useEndDate' as use_end_date,
+  b.items->a.ota_item_seq->>'quantity' as use_quantity
 FROM order_master a
-LEFT JOIN trip_order b ON a.trip_order_oid = b.trip_order_oid
+LEFT JOIN trip_order b ON a.ota_order_id = b.trip_order_oid::text
 WHERE a.order_master_mid = :order_master_mid ";
 
                     return conn.Query<OrderMasterExModel>(sqlStmt, new { order_master_mid = order_master_mid }).ToList();
