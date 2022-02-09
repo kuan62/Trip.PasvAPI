@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Dynamic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Trip.PasvAPI.AppCode;
-using Trip.PasvAPI.Models.Model;
+using Newtonsoft.Json; 
+using Trip.PasvAPI.AppCode; 
+using Trip.PasvAPI.Models.Model; 
 using Trip.PasvAPI.Proxy;
+using Newtonsoft.Json.Converters;
+using System.Globalization;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -92,7 +95,7 @@ namespace Trip.PasvAPI.Controllers
             return resp;
         }
 
-
+        /*
         // GET api/values/5
         [HttpGet("{id}")]
         public string Get(int id)
@@ -117,5 +120,6 @@ namespace Trip.PasvAPI.Controllers
         public void Delete(int id)
         {
         }
+        */
     }
 }

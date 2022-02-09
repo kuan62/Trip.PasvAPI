@@ -18,16 +18,14 @@ namespace Trip.PasvAPI.Models.Repository
     public class OrderMasterRepository
     {
         private readonly TripOrderRepository _tripOrderRepos;
-        private readonly ProductProxy _prodProxy;
-        private readonly BookingProxy _bookingProxy;
+        private readonly ProductProxy _prodProxy; 
         private readonly IMemoryCache _cache;
 
         public OrderMasterRepository(TripOrderRepository tripOrderRepos, ProductProxy prodProxy,
-            BookingProxy bookingProxy, IMemoryCache memoryCache)
+             IMemoryCache memoryCache)
         {
             this._tripOrderRepos = tripOrderRepos;
             this._prodProxy = prodProxy;
-            this._bookingProxy = bookingProxy;
             this._cache = memoryCache;
         }
 
@@ -354,8 +352,7 @@ WHERE a.order_master_mid = :order_master_mid ";
             return (model, qty);
         }
 
-        //////////////
-        
+        //
         public void Insert(OrderMasterModel req)
         {
             try

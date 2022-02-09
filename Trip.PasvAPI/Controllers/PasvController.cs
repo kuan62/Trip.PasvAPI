@@ -15,7 +15,7 @@ using Trip.PasvAPI.Models.Enum;
 using Trip.PasvAPI.Models.Model;
 using Trip.PasvAPI.Models.Model.Trip;
 using Trip.PasvAPI.Models.Repository;
-using Trip.PasvAPI.Proxy;
+using Trip.PasvAPI.Proxy; 
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -688,7 +688,7 @@ namespace Trip.PasvAPI.Controllers
         ///////////
 
         #region 订单新订确认 New order confirmation --- start
- 
+
         // POST api/Pasv/OrderConfirm
         [HttpGet("OrderConfirm/{id?}")]
         public string OrderConfirm(string id)
@@ -701,10 +701,41 @@ namespace Trip.PasvAPI.Controllers
                 var orderMasterRepos = HttpContext.RequestServices.GetService<OrderMasterRepository>();
                 var tripOrderRepos = HttpContext.RequestServices.GetService<TripOrderRepository>();
                 var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
+                var voucherProxy = HttpContext.RequestServices.GetService<VoucherProxy>();
 
                 // 取出訂單
                 var master = orderMasterRepos.GetOrder(order_master_mid: id);
                 var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
+
+                #region 取得 B2D 憑證清單 --- start
+
+                var _itemId = tripOrder.items.FirstOrDefault()?.itemId;
+                var _vouchers = new List<NewOrderConfirmationReqModel.VouchersModel>();
+                var voucher_files = new Dictionary<string, string>(); // <file_name, base64_voucher>
+
+                // 抓取 B2D 憑證清單
+                var json_result = voucherProxy.GetVoucherLst(master.order_mid, authorToken: Website.Instance.B2dApiAuthorToken); 
+                var b2d_voucher_lst = JsonConvert.DeserializeObject<VoucherQueryRespModel>(json_result); 
+                if (Convert.ToInt32(b2d_voucher_lst.result) != 0) throw new Exception($"{master.order_mid}: voucher get list error ({b2d_voucher_lst.result}).");
+                foreach (var _file in b2d_voucher_lst.file)
+                {
+                    // 取得該憑證資料
+                    json_result = voucherProxy.GetVoucher(master.order_mid, _file.order_file_id, Website.Instance.B2dApiAuthorToken);
+                    var b2d_voucher = JsonConvert.DeserializeObject<VoucherDownloadRespModel>(json_result);
+                    if (Convert.ToInt32(b2d_voucher.result) != 0) throw new Exception($"{master.order_mid}: voucher is invalid ({b2d_voucher.result}).");
+
+                    foreach (var v_file in b2d_voucher.file)
+                    {
+                        _vouchers.Add(new NewOrderConfirmationReqModel.VouchersModel()
+                        {
+                            itemId = _itemId,
+                            voucherType = 5, // PDF
+                            voucherData = v_file.encode_str
+                        }); 
+                    }
+                }
+
+                #endregion  取得 B2D 憑證清單 --- end
 
                 // 準備請求參數
                 var _header = new TTdReqHeaderModel()
@@ -715,12 +746,6 @@ namespace Trip.PasvAPI.Controllers
                     version = "1.0",
                     sign = "",
                 };
-
-                var _vouchers = new List<NewOrderConfirmationReqModel.VouchersModel>();
-                _vouchers.Add(new NewOrderConfirmationReqModel.VouchersModel()
-                {
-
-                });
 
                 var _items = new List<NewOrderConfirmationReqModel.ItemModel>();
                 tripOrder.items.ForEach(i =>
@@ -759,7 +784,7 @@ namespace Trip.PasvAPI.Controllers
                 var log_oid = logRepos.Insert(jsonData, JsonConvert.SerializeObject(_body), "KKDAY");
 
                 // 回調 Ctrip ttdstpAPI
-                result = ttdOpenProxy.PostAsync(jsonData).GetAwaiter().GetResult(); 
+                result = ttdOpenProxy.PostAsync(jsonData).GetAwaiter().GetResult();
                 logRepos.SetResponse(log_oid, result, null, "TRIP");
 
                 // 判斷回傳結果
@@ -769,9 +794,10 @@ namespace Trip.PasvAPI.Controllers
                     var resp_header = resp["header"].ToObject<TTdResponseModel.TTdResponseHeaderModel>();
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Website.Instance.logger.Fatal($"OrderConfirm Exception, Message={ex.Message},StackTrace={ex.StackTrace}");
+                throw ex;
             }
 
             return result;
@@ -860,6 +886,7 @@ namespace Trip.PasvAPI.Controllers
             catch (Exception ex)
             {
                 Website.Instance.logger.Fatal($"OrderConfirm Exception, Message={ex.Message},StackTrace={ex.StackTrace}");
+                throw ex;
             }
 
             return result;
@@ -942,6 +969,7 @@ namespace Trip.PasvAPI.Controllers
             catch (Exception ex)
             {
                 Website.Instance.logger.Fatal($"OrderConfirm Exception, Message={ex.Message},StackTrace={ex.StackTrace}");
+                throw ex;
             }
 
             return result;
@@ -1033,6 +1061,7 @@ namespace Trip.PasvAPI.Controllers
             catch (Exception ex)
             {
                 Website.Instance.logger.Fatal($"OrderConfirm Exception, Message={ex.Message},StackTrace={ex.StackTrace}");
+                throw ex;
             }
 
             return result;

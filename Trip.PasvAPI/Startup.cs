@@ -68,6 +68,7 @@ namespace Trip.PasvAPI
             services.AddSingleton<ProductProxy>();
             services.AddSingleton<BookingProxy>();
             services.AddSingleton<OrderProxy>();
+            services.AddSingleton<VoucherProxy>();
 
             // Repository
             services.AddSingleton<TripTransLogRepository>();
