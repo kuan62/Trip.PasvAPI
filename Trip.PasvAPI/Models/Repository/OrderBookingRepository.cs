@@ -750,7 +750,7 @@ namespace Trip.PasvAPI.Models.Repository
                 });
 
                 bookingData.guid = pkg.guid;
-                bookingData.partner_order_no = Guid.NewGuid().ToString().Substring(0,15);
+                bookingData.partner_order_no = tripOrder.otaOrderId;
                 bookingData.prod_no = prod.prod.prod_no;
                 bookingData.prod_name = prod.prod.prod_name;
                 bookingData.pkg_no = pkg.pkg_no;
