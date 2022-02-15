@@ -765,7 +765,7 @@ namespace Trip.PasvAPI.Models.Repository
 
                 // 帶入訂購人資訊
                 bookingData.buyer_country = "CN";
-                bookingData.buyer_email = tripOrder.contacts[0].email;
+                bookingData.buyer_email = Website.Instance.Configuration["BuyerEmail"]?? "eric.hu@kkday.com";  // tripOrder.contacts[0].email;
 
                 if (tripOrder.contacts[0].name.Split(' ').Count() > 1)
                 {
