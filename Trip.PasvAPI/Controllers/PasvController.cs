@@ -304,8 +304,8 @@ namespace Trip.PasvAPI.Controllers
                                 {
                                     otaOrderId = order.otaOrderId,
                                     supplierOrderId = orderMasterRepos.GetOrderMasterMid(order.otaOrderId),
-                                    supplierConfirmType = 1,
-                                    voucherSender = 2, // 2.供应商发送凭证
+                                    supplierConfirmType = 2, // 2.新订待确认 (搭配 CreateOrderConfirm)
+                                    voucherSender = 1, // 1.携程发送凭证
                                     items = _items,
                                 };
                             }
@@ -441,8 +441,8 @@ namespace Trip.PasvAPI.Controllers
                                                 {
                                                     otaOrderId = order.otaOrderId,
                                                     supplierOrderId = result.order_master_mid, // KKday 主訂單號
-                                                    supplierConfirmType = 1,
-                                                    voucherSender = 2, // 2.供应商发送凭证
+                                                    supplierConfirmType = 2, // 2.新订待确认（当 confirmType =2时需异步返回确认结果的）
+                                                    voucherSender = 1, // 1.携程发送凭证
                                                     items = _items,
                                                 };
                                             }
@@ -540,7 +540,7 @@ namespace Trip.PasvAPI.Controllers
                             };
                         }
                         // (4) 该订单已经使用: 2002
-                        else if (kkday_order != null && kkday_order.order_status == "GO_OK")
+                        else if (kkday_order != null && kkday_order.order_status == "BACK")
                         {
                             resp_code = TTdResultCodeEnum.CX_ORDER_USED.GetHashCode().ToString("D4");
                             resp_msg = $"supplierOrderId={ order.supplierOrderId } : 该订单已经使用";

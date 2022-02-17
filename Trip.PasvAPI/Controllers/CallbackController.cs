@@ -37,108 +37,175 @@ namespace Trip.PasvAPI.Controllers
         public void Post([FromBody] WebHookModel req)
         {
             try
-            {
+            { 
+                var logRepos = HttpContext.RequestServices.GetService<TripTransLogRepository>();
+                var orderMasterRepos = HttpContext.RequestServices.GetService<OrderMasterRepository>();
+                var tripOrderRepos = HttpContext.RequestServices.GetService<TripOrderRepository>();
+                var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
+                var voucherProxy = HttpContext.RequestServices.GetService<VoucherProxy>();
+
+                // 取出 KKday 訂單
+                var master = orderMasterRepos.GetOrder(order_mid: req.order.order_no);
+                var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
+                 
                 // 訂單憑證已產出，需通知 Trip.com
-                if (req.result_type.Equals("order") && req.order.status.Equals("GO_OK"))
+                if (req.result_type.Equals("order"))
                 {
-                    var result = "";
+                    // 修改本地端狀態
+                    orderMasterRepos.ChangeStatus(master.order_master_mid, req.order.status);
 
-                    var logRepos = HttpContext.RequestServices.GetService<TripTransLogRepository>();
-                    var orderMasterRepos = HttpContext.RequestServices.GetService<OrderMasterRepository>();
-                    var tripOrderRepos = HttpContext.RequestServices.GetService<TripOrderRepository>();
-                    var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
-                    var voucherProxy = HttpContext.RequestServices.GetService<VoucherProxy>();
-
-                    // 取出 KKday 訂單
-                    var master = orderMasterRepos.GetOrder(order_mid: req.order.order_no);
-                    var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
-
-                    #region 取得 B2D 憑證清單 --- start
-
-                    var _itemId = tripOrder.items.FirstOrDefault()?.itemId;
-                    var _vouchers = new List<NewOrderConfirmationReqModel.VouchersModel>();
-                    var voucher_files = new Dictionary<string, string>(); // <file_name, base64_voucher>
-
-                    // 抓取 B2D 憑證清單
-                    var json_result = voucherProxy.GetVoucherLst(master.order_mid, authorToken: Website.Instance.B2dApiAuthorToken);
-                    var b2d_voucher_lst = JsonConvert.DeserializeObject<VoucherQueryRespModel>(json_result);
-                    if (Convert.ToInt32(b2d_voucher_lst.result) != 0) throw new Exception($"{master.order_mid}: voucher get list error ({b2d_voucher_lst.result}).");
-                    foreach (var _file in b2d_voucher_lst.file)
+                    switch (req.order.status)
                     {
-                        // 取得該憑證資料
-                        json_result = voucherProxy.GetVoucher(master.order_mid, _file.order_file_id, Website.Instance.B2dApiAuthorToken);
-                        var b2d_voucher = JsonConvert.DeserializeObject<VoucherDownloadRespModel>(json_result);
-                        if (Convert.ToInt32(b2d_voucher.result) != 0) throw new Exception($"{master.order_mid}: voucher is invalid ({b2d_voucher.result}).");
-
-                        foreach (var v_file in b2d_voucher.file)
-                        {
-                            _vouchers.Add(new NewOrderConfirmationReqModel.VouchersModel()
+                        case "GO_OK":
                             {
-                                itemId = _itemId,
-                                voucherType = 5, // PDF
-                                voucherData = v_file.encode_str
-                            });
-                        }
+                                #region 取得 B2D 憑證清單 --- start
+
+                                var _itemId = tripOrder.items.FirstOrDefault()?.itemId;
+                                var _vouchers = new List<NewOrderConfirmationReqModel.VouchersModel>();
+                                var voucher_files = new Dictionary<string, string>(); // <file_name, base64_voucher>
+
+                                // 抓取 B2D 憑證清單
+                                var json_result = voucherProxy.GetVoucherLst(master.order_mid, authorToken: Website.Instance.B2dApiAuthorToken);
+                                var b2d_voucher_lst = JsonConvert.DeserializeObject<VoucherQueryRespModel>(json_result);
+                                if (Convert.ToInt32(b2d_voucher_lst.result) != 0) throw new Exception($"{master.order_mid}: voucher get list error ({b2d_voucher_lst.result}).");
+                                foreach (var _file in b2d_voucher_lst.file)
+                                {
+                                    // 取得該憑證資料
+                                    json_result = voucherProxy.GetVoucher(master.order_mid, _file.order_file_id, Website.Instance.B2dApiAuthorToken);
+                                    var b2d_voucher = JsonConvert.DeserializeObject<VoucherDownloadRespModel>(json_result);
+                                    if (Convert.ToInt32(b2d_voucher.result) != 0) throw new Exception($"{master.order_mid}: voucher is invalid ({b2d_voucher.result}).");
+
+                                    foreach (var v_file in b2d_voucher.file)
+                                    {
+                                        _vouchers.Add(new NewOrderConfirmationReqModel.VouchersModel()
+                                        {
+                                            itemId = _itemId,
+                                            voucherType = 5, // PDF
+                                            voucherData = v_file.encode_str
+                                        });
+                                    }
+                                }
+
+                                #endregion 取得 B2D 憑證清單 --- end
+
+                                // 準備請求參數
+                                var _header = new TTdReqHeaderModel()
+                                {
+                                    accountId = Website.Instance.AgentAccount,
+                                    serviceName = "CreateOrderConfirm",
+                                    requestTime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"), // "2017-01-05 10:00:00",
+                                    version = "1.0",
+                                    sign = "",
+                                };
+
+                                var _items = new List<NewOrderConfirmationReqModel.ItemModel>();
+                                tripOrder.items.ForEach(i =>
+                                {
+                                    var _inventorys = new List<NewOrderConfirmationReqModel.ItemModel.InventoryModel>();
+
+                                    _items.Add(new NewOrderConfirmationReqModel.ItemModel()
+                                    {
+                                        itemId = i.itemId,
+                                        inventorys = _inventorys
+                                    });
+                                });
+
+                                var _body = new NewOrderConfirmationReqModel()
+                                {
+                                    sequenceId = tripOrder.sequence_id,
+                                    otaOrderId = tripOrder.ota_order_id,
+                                    supplierOrderId = master.order_master_mid,
+                                    confirmResultCode = "0000",
+                                    confirmResultMessage = "确认信息",
+                                    voucherSender = 1,// 1. Ctrip sends voucher 2. Suppliers send the voucher
+                                    vouchers = _vouchers,
+                                    items = _items
+                                };
+
+                                var _encryBody = TripAesCryptHelper.Encrypt(JsonConvert.SerializeObject(_body), secretKey, aesIV);
+
+                                // 更新 header.sign 值
+                                _header.sign = Md5Helper.ToMD5($"{ _header.accountId }{ _header.serviceName }{ _header.requestTime }{ _encryBody }{ _header.version }{ Website.Instance.SignKey }").ToLower();
+
+                                var cmd = new Dictionary<string, object>();
+                                cmd.Add("header", _header);
+                                cmd.Add("body", _encryBody);
+
+                                var jsonData = JsonConvert.SerializeObject(cmd);
+                                var log_oid = logRepos.Insert(jsonData, JsonConvert.SerializeObject(_body), "KKDAY");
+
+                                // 回調 Ctrip ttdstpAPI
+                                var result = ttdOpenProxy.PostAsync(jsonData).GetAwaiter().GetResult();
+                                logRepos.SetResponse(log_oid, result, null, "TRIP");
+
+                                // 判斷回傳結果
+                                if (result?.IndexOf("header") != -1)
+                                {
+                                    var resp = JObject.Parse(result);
+                                    var resp_header = resp["header"].ToObject<TTdResponseModel.TTdResponseHeaderModel>();
+                                }
+
+                                break;
+                            }
+                            
+                        case "CX":
+                            {
+                                // 準備請求參數
+                                var _header = new TTdReqHeaderModel()
+                                {
+                                    accountId = Website.Instance.AgentAccount,
+                                    serviceName = "CancelOrderConfirm",
+                                    requestTime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"), // "2017-01-05 10:00:00",
+                                    version = "1.0"
+                                };
+                 
+                                var _items = new List<CancelOrderConfirmReqModel.ItemModel>();
+                                tripOrder.items.ForEach(i =>
+                                { 
+                                    _items.Add(new CancelOrderConfirmReqModel.ItemModel()
+                                    {
+                                        itemId = i.itemId
+                                    });
+                                });
+
+                                var _body = new CancelOrderConfirmReqModel()
+                                {
+                                    sequenceId = master.ota_sequence_id,
+                                    otaOrderId = tripOrder.ota_order_id,
+                                    supplierOrderId = master.order_master_mid,
+                                    confirmResultCode = "0000",
+                                    confirmResultMessage = "确认信息", 
+                                    items = _items
+                                };
+
+                                var _encryBody = TripAesCryptHelper.Encrypt(JsonConvert.SerializeObject(_body), secretKey, aesIV);
+
+                                // 更新 header.sign 值
+                                _header.sign = Md5Helper.ToMD5($"{ _header.accountId }{ _header.serviceName }{ _header.requestTime }{ _encryBody }{ _header.version }{ Website.Instance.SignKey }").ToLower();
+                 
+                                var cx_req = new Dictionary<string, object>();
+                                cx_req.Add("header", _header);
+                                cx_req.Add("body", _encryBody);
+
+                                var jsonData = JsonConvert.SerializeObject(cx_req);
+                                var log_oid = logRepos.Insert(jsonData, JsonConvert.SerializeObject(_body), "KKDAY");
+
+                                // 回調 Ctrip ttdstpAPI
+                                var result = ttdOpenProxy.PostAsync(jsonData).GetAwaiter().GetResult();
+                                logRepos.SetResponse(log_oid, result, null, "TRIP");
+
+                                // 判斷回傳結果
+                                if (result?.IndexOf("header") != -1)
+                                {
+                                    var resp = JObject.Parse(result);
+                                    var resp_header = resp["header"].ToObject<TTdResponseModel.TTdResponseHeaderModel>();
+                                }
+                                break;
+                            }
+
+                        default: break; // Unknow...
                     }
 
-                    #endregion 取得 B2D 憑證清單 --- end
-
-                    // 準備請求參數
-                    var _header = new TTdReqHeaderModel()
-                    {
-                        accountId = Website.Instance.AgentAccount,
-                        serviceName = "CreateOrderConfirm",
-                        requestTime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"), // "2017-01-05 10:00:00",
-                        version = "1.0",
-                        sign = "",
-                    };
-
-                    var _items = new List<NewOrderConfirmationReqModel.ItemModel>();
-                    tripOrder.items.ForEach(i =>
-                    {
-                        var _inventorys = new List<NewOrderConfirmationReqModel.ItemModel.InventoryModel>();
-
-                        _items.Add(new NewOrderConfirmationReqModel.ItemModel()
-                        {
-                            itemId = i.itemId,
-                            inventorys = _inventorys
-                        });
-                    });
-
-                    var _body = new NewOrderConfirmationReqModel()
-                    {
-                        sequenceId = tripOrder.sequence_id,
-                        otaOrderId = tripOrder.ota_order_id,
-                        supplierOrderId = master.order_master_mid,
-                        confirmResultCode = "0000",
-                        confirmResultMessage = "确认信息",
-                        voucherSender = 2,// 1. Ctrip sends voucher 2. Suppliers send the voucher
-                        vouchers = _vouchers,
-                        items = _items
-                    };
-
-                    var _encryBody = TripAesCryptHelper.Encrypt(JsonConvert.SerializeObject(_body), secretKey, aesIV);
-
-                    // 更新 header.sign 值
-                    _header.sign = Md5Helper.ToMD5($"{ _header.accountId }{ _header.serviceName }{ _header.requestTime }{ _encryBody }{ _header.version }{ Website.Instance.SignKey }").ToLower();
-
-                    var cmd = new Dictionary<string, object>();
-                    cmd.Add("header", _header);
-                    cmd.Add("body", _encryBody);
-
-                    var jsonData = JsonConvert.SerializeObject(cmd);
-                    var log_oid = logRepos.Insert(jsonData, JsonConvert.SerializeObject(_body), "KKDAY");
-
-                    // 回調 Ctrip ttdstpAPI
-                    result = ttdOpenProxy.PostAsync(jsonData).GetAwaiter().GetResult();
-                    logRepos.SetResponse(log_oid, result, null, "TRIP");
-
-                    // 判斷回傳結果
-                    if (result?.IndexOf("header") != -1)
-                    {
-                        var resp = JObject.Parse(result);
-                        var resp_header = resp["header"].ToObject<TTdResponseModel.TTdResponseHeaderModel>();
-                    }
                 }
             }
             catch (Exception ex)
