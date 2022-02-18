@@ -304,7 +304,7 @@ namespace Trip.PasvAPI.Controllers
                                 {
                                     otaOrderId = order.otaOrderId,
                                     supplierOrderId = orderMasterRepos.GetOrderMasterMid(order.otaOrderId),
-                                    supplierConfirmType = 2, // 2.新订待确认 (搭配 CreateOrderConfirm)
+                                    supplierConfirmType = 2, // 2.新订待确认 (搭配 CreateOrderConfirm) // order.confirmType, 
                                     voucherSender = 1, // 1.携程发送凭证
                                     items = _items,
                                 };
@@ -441,7 +441,7 @@ namespace Trip.PasvAPI.Controllers
                                                 {
                                                     otaOrderId = order.otaOrderId,
                                                     supplierOrderId = result.order_master_mid, // KKday 主訂單號
-                                                    supplierConfirmType = 2, // 2.新订待确认（当 confirmType =2时需异步返回确认结果的）
+                                                    supplierConfirmType = 2, // 2.新订待确认（当 confirmType =2时需异步返回确认结果的）// order.confirmType
                                                     voucherSender = 1, // 1.携程发送凭证
                                                     items = _items,
                                                 };
@@ -535,7 +535,7 @@ namespace Trip.PasvAPI.Controllers
                             // 回傳-主體(Body)
                             resp_body = new CancelOrderRespModel()
                             {
-                                supplierConfirmType = 1,
+                                supplierConfirmType = 2, // order.confirmType,
                                 items = _items,
                             };
                         }
@@ -577,7 +577,7 @@ namespace Trip.PasvAPI.Controllers
                                 {
                                     //   1.取消已确认 (当confirmType = 1, 需同步返回确认结果) 
                                     // * 2.取消待确认 (当confirmType = 2, 需异步返回确认结果)
-                                    supplierConfirmType = 2,
+                                    supplierConfirmType = 2, // order.confirmType,
                                     items = _items,
                                 };
                             }
