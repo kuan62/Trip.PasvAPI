@@ -107,7 +107,14 @@ namespace Trip.PasvAPI.Models.Repository
 
                 using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
                 {
-                    var sqlStmt = @$"INSERT INTO trip_order (sequence_id, ota_order_id, confirm_type, contacts, coupons, items, status, note, create_user)
+                    // 判斷紀錄是否重複?
+                    var sqlStmt = @$"SELECT trip_order_oid FROM trip_order WHERE ota_order_id=:ota_order_id";
+                    var trip_order_oid = conn.QuerySingleOrDefault<Int64?>(sqlStmt, new { ota_order_id = req.ota_order_id });
+                    // 已存在, 直接返回 trip_order_oid
+                    if (trip_order_oid != null) return trip_order_oid.Value;
+
+                    // 新增紀錄
+                    sqlStmt = @$"INSERT INTO trip_order (sequence_id, ota_order_id, confirm_type, contacts, coupons, items, status, note, create_user)
 VALUES(:sequence_id, :ota_order_id, :confirm_type, :contacts::jsonb, :coupons::jsonb, :items::jsonb, :status, :note, :create_user)
 RETURNING trip_order_oid ";
 

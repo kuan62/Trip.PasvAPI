@@ -135,6 +135,23 @@ where b.ota_order_id=:ota_order_id";
             }
         }
 
+        public bool IsDuplicated(string ota_order_id)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(Website.Instance.SqlConnectionString))
+                {
+                    var sqlStmt = @$"SELECT EXISTS (SELECT * FROM order_master WHERE ota_order_id=:ota_order_id);";
+
+                    return conn.QuerySingle<bool>(sqlStmt, new { ota_order_id });
+                }
+            }
+            catch (Exception ex)
+            {
+                Website.Instance.logger.Fatal($"Exception: Message={ex.Message}, StackTrace={ex.StackTrace}");
+                throw ex;
+            }
+        }
 
         //////////////
 

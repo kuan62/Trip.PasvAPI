@@ -269,7 +269,7 @@ namespace Trip.PasvAPI.Controllers
                             var order = JObject.Parse(body).ToObject<CreateOrderReqModel>();
 
                             // 確認資料有無重複
-                            var is_duplicated = tripOrderRepos.IsDuplicated(order.otaOrderId);
+                            var is_duplicated = orderMasterRepos.IsDuplicated(order.otaOrderId);
                             if (is_duplicated)
                             {
                                 // 回傳代碼(Result Code)-訊息: 訂單已重複需回傳 otaItemOid

@@ -44,13 +44,15 @@ namespace Trip.PasvAPI.Controllers
                 var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
                 var voucherProxy = HttpContext.RequestServices.GetService<VoucherProxy>();
 
-                // 取出 KKday 訂單
-                var master = orderMasterRepos.GetOrder(order_mid: req.order.order_no);
-                var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
-                 
+                Website.Instance.logger.Debug($"WebHook req : {System.Text.Json.JsonSerializer.Serialize(req)}");
+  
                 // 訂單憑證已產出，需通知 Trip.com
                 if (req.result_type.Equals("order"))
                 {
+                    // 取出 KKday 訂單
+                    var master = orderMasterRepos.GetOrder(order_mid: req.order.order_no);
+                    var tripOrder = tripOrderRepos.GetOrder(master.ota_order_id);
+               
                     // 修改本地端狀態
                     orderMasterRepos.ChangeStatus(master.order_master_mid, req.order.status);
 
