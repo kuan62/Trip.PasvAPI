@@ -453,7 +453,8 @@ namespace Trip.PasvAPI.Models.Repository
                 //依據 Eric 提 obj.items.cost 為b2d的價格比對依據，也不會有event!
                 //沒有場次的金額{"2021-11-21":{"b2b_price":{"fullday":170},"b2c_price":{"fullday":200}}}
                 //有場次{"2021-11-21":{"b2b_price":{"09:00":508,"14:00":508},"b2c_price":{"09:00":535,"14:00":535}}}
-                //要確認 1.有位控 2.日期必須要有金額必須相同 
+                //要確認 1.有位控 2.日期必須要有金額必須相同
+                var b2bPrice = 0.0;
                 foreach (var bookingItem in tripOrder.items)
                 {
                     BookingProdInfo bookingInfo = this.fullBookingProdInfo(tripOrder?.sequenceId, bookingItem);
@@ -467,7 +468,7 @@ namespace Trip.PasvAPI.Models.Repository
 
                     if (sku != null)
                     {
-                        var b2bPrice = Convert.ToDouble(sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2b_price"]?["fullday"]);
+                        b2bPrice = Convert.ToDouble(sku.calendar_detail[tripOrder.items[0].useStartDate]?["b2b_price"]?["fullday"]);
                         // 以 B2B 價格比對金額!
                         if (b2bPrice == tripOrder.items[0]?.cost)
                         {
@@ -483,9 +484,7 @@ namespace Trip.PasvAPI.Models.Repository
 
                 if (chkLoop == false)
                 {
-                    Website.Instance.logger.Info($"chkPrice 價格驗證失敗! guid={tripOrder?.sequenceId}");
-                    res.resp_code = "1007";
-                    res.resp_msg = "产品价格不存在";
+                    throw new Exception($"KKday.NetPrice:{b2bPrice} <> Trip.Cost: {tripOrder.items[0]?.cost}");
                 }
 
                 return res;
@@ -526,7 +525,7 @@ namespace Trip.PasvAPI.Models.Repository
                 }
 
                 // 依旅客條件，且 trip 沒提供旅客
-                if(RefPkgTemp2?.customer?.cus_type.Where(t => t.Equals("cus_02")).Count() > 1 && 
+                if (RefPkgTemp2?.customer?.cus_type.Where(t => t.Equals("cus_02")).Count() > 1 &&
                     trip.items.Where(i => i.passengers.Count() < 1).Count() > 0)
                 {
                     var plu = trip.items.Select(i => i.PLU).Distinct().FirstOrDefault();
@@ -539,8 +538,8 @@ namespace Trip.PasvAPI.Models.Repository
                 #region 旅規檢查 --- start
 
                 /*
-                foreach (var cusType in RefPkgTemp2.customer.cus_type)
-                { 
+                foreach (var cusType in bookingFiled?.Custom?.CusType.ListOption)
+                {
                     if (cusType == "cus_01") //依代表人
                     {
                         if (bookingFiled?.Custom?.EnglishFirstName?.IsRequire == "True")
@@ -675,27 +674,9 @@ namespace Trip.PasvAPI.Models.Repository
                         {
                         }
                     }
-
-
-                    if (prod.booking_field?.Traffic?.Car?.TrafficType?.IsRequire == "True")
-                    {
-                        //不能下訂
-                    }
-
-                    if (prod.booking_field?.MobileDevice?.Imei?.IsRequire == "True")
-                    {
-                        //不能下訂
-                    }
-                    if (prod.booking_field?.MobileDevice?.MobileModelNo?.IsRequire == "True")
-                    {
-                        //不能下訂
-                    }
-                    if (prod.booking_field?.MobileDevice?.ActiveDate?.IsRequire == "True")
-                    {
-                        //不能下訂
-                    }
                 }
                 */
+             
 
                 #endregion 旅規檢查 --- end
 
@@ -782,18 +763,49 @@ namespace Trip.PasvAPI.Models.Repository
                 bookingData.buyer_tel_country_code = tripOrder.contacts[0].intlCode; 
                 bookingData.skus = skuLst;
 
+                ////////////////
+
+                #region 訂購規定 Customer --- start
+
                 // 判斷旅規需帶入旅客資料
-                if (prod?.booking_field?.Custom?.CusType != null) {
-                    if (prod.booking_field.Custom.CusType.ListOption.Where(t => t.Equals("cus_02")).Count() > 0)
+                if (prod?.booking_field?.Custom?.CusType != null)
+                {
+                    bookingData.custom = new List<BookingDataCustomModel>();
+
+                    var customBF = prod?.booking_field?.Custom; 
+                    // cus_01 (旅客代表人)
+                    if (customBF.CusType.ListOption.Where(t => t.Equals("cus_01")).Count() > 0)
                     {
-                        bookingData.custom = new List<BookingDataCustomModel>();
+                        // 以第一位旅客為代表人
+                        var psg = tripOrder.items.FirstOrDefault()?.passengers?.FirstOrDefault();
+                        if (psg == null) throw new NullReferenceException("cus_01 旅客代表人為空"); 
+                        bookingData.custom.Add(new BookingDataCustomModel()
+                        {
+                            cus_type = "cus_01",
+                            native_first_name = psg?.firstName,
+                            native_last_name = psg?.lastName,
+                            english_first_name = customBF.EnglishFirstName.IsRequire.Equals("True") ? psg?.firstName : null,
+                            english_last_name = customBF.EnglishLastName.IsRequire.Equals("True") ? psg?.lastName : null,
+                            birth = psg?.birthDate,
+                            id_no = psg?.cardNo,
+                            gender = psg?.gender, // M-男, F-女
+                            tel_country_code = psg?.intlCode,
+                            tel_number = psg?.mobile,
+                        });
+                    }
+
+                    // cus_02 (每位旅客)
+                    if (customBF.CusType.ListOption.Where(t => t.Equals("cus_02")).Count() > 0)
+                    { 
                         tripOrder.items.SelectMany(i => i.passengers.Select(p => p)).ToList().ForEach(psg =>
                          {
-                             custom.Add(new BookingDataCustomModel()
+                             bookingData.custom.Add(new BookingDataCustomModel()
                              {
                                  cus_type = "cus_02",
                                  native_first_name = psg.firstName,
                                  native_last_name = psg.lastName,
+                                 english_first_name = customBF.EnglishFirstName.IsRequire.Equals("True") ? psg?.firstName : null,
+                                 english_last_name = customBF.EnglishLastName.IsRequire.Equals("True") ? psg?.lastName : null,
                                  birth = psg.birthDate,
                                  id_no = psg.cardNo,
                                  gender = psg.gender, // M-男, F-女
@@ -804,6 +816,63 @@ namespace Trip.PasvAPI.Models.Repository
                     }
                 }
 
+                #endregion 訂購規定 Customer --- end
+
+                ////////////////
+
+                #region 訂購規定 Traffics --- start
+
+                // Car細分成: rentcar_01 (甲租甲還), rentcar_02 (甲租乙還), rentcar_03(含司機),
+                //    pickup_03(供應商指定地點接送), pickup_04(客人指定地點接送), voucher (憑證領取地點)
+                if (prod?.booking_field?.Traffic?.Car?.TrafficType != null)
+                {
+                    var trafficBF = prod.booking_field?.Traffic;
+                    foreach (var traffic_type in prod.booking_field?.Traffic.Car.TrafficType.ListOption)
+                    {
+                        if (traffic_type == "voucher") // 憑證類型
+                        {
+                            var traffcar = new BookingDataTrafficCarModel()
+                            {
+                                traffic_type = traffic_type
+                            };
+
+                            if (trafficBF.Car.SLocation.IsRequire == "True")
+                            {
+                                if (trafficBF.Car.LocationList.ListOption.Count() < 2)
+                                {
+                                    traffcar.s_location = trafficBF.Car.LocationList.ListOption.FirstOrDefault()?.Id;
+                                }
+                                else
+                                {
+                                    var trip_voucher_id = tripOrder.items.SelectMany(i => i.adjunctions.Where(a => a.nameCode.Equals("voucher")).Select(d => d.contentCode)).Distinct().FirstOrDefault();
+                                    var location = trafficBF.Car.LocationList.ListOption.Where(l => l.Id == trip_voucher_id).FirstOrDefault();
+                                    traffcar.s_location = location?.Id;
+                                }
+
+                            }
+
+                            bookingData.traffic.Add(new BookingDataTrafficModel()
+                            {
+                                car = traffcar
+                            });
+                        }
+                    }
+                }
+
+                if (prod?.booking_field?.Traffic?.Flight?.TrafficType != null)
+                {
+
+                }
+
+                if (prod?.booking_field?.Traffic?.Qty?.TrafficType != null)
+                {
+
+                }
+
+                #endregion 訂購規定 Traffics --- end
+
+                ////////////////
+                
                 BookingDataPaymentModel pay = new BookingDataPaymentModel();
                 pay.type = "01";
                 bookingData.pay = pay;
@@ -811,7 +880,7 @@ namespace Trip.PasvAPI.Models.Repository
             }
             catch (Exception ex)
             {
-                Website.Instance.logger.Fatal($"fullBookingModel 滿足bookingData異常! guid={tripOrder?.sequenceId},ex:{ex?.Message?.ToString()},{ex?.StackTrace?.ToString()}");
+                Website.Instance.logger.Fatal($"BookingModel 建立異常! guid={tripOrder?.sequenceId},ex:{ex?.Message?.ToString()},{ex?.StackTrace?.ToString()}");
                 bookingData = null;
             }
 

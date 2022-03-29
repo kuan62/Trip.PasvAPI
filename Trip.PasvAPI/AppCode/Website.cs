@@ -58,7 +58,7 @@ namespace Trip.PasvAPI.AppCode
         {
             try
             {
-                string logPath = Configuration["Log4netPath:Path"];
+                string logPath = Configuration["Log4netPath:Path"] ?? Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
 
                 var repository = LogManager.CreateRepository(Assembly.GetEntryAssembly(),
                          typeof(log4net.Repository.Hierarchy.Hierarchy)
