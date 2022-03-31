@@ -44,7 +44,7 @@ namespace Trip.PasvAPI.Controllers
                 var ttdOpenProxy = HttpContext.RequestServices.GetService<Proxy.TtdOpenProxy>();
                 var voucherProxy = HttpContext.RequestServices.GetService<VoucherProxy>();
 
-                Website.Instance.logger.Debug($"WebHook req : {System.Text.Json.JsonSerializer.Serialize(req)}");
+                // Website.Instance.logger.Debug($"WebHook req : {System.Text.Json.JsonSerializer.Serialize(req)}");
   
                 // 訂單憑證已產出，需通知 Trip.com
                 if (req.result_type.Equals("order"))
