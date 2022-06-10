@@ -42,7 +42,7 @@ namespace Trip.PasvAPI.Models.Model
             public string order_file_id { get; set; } // 檔案編號
             public string file_name { get; set; } // 檔案名稱
             public string file_intro { get; set; } // 檔案敘述
-            public string ontent_type { get; set; } // 檔案類型
+            public string content_type { get; set; } // 檔案類型
             public string encode_str { get; set; } // 檔案編碼
         }
         public List<VoucherFileModel> file { get; set; } // 檔案列表 
